@@ -1,0 +1,6 @@
+[RESTOK] Hansaplast Kain Amplop +4 (Total Stok: 54)
+[TAMBAH] Barang Baru: Jelly | Jumlah: 4 | Harga: Rp5.000
+[RESTOK] Jelly +2 (Total Stok: 6)
+[TAMBAH] Barang Baru: Pocket puh | ID: 521 | Kategori: Elektronik (ID: 5) | Jumlah: 1 | Harga: Rp999.999
+[RESTOK] Pocket puh +2 (Total Stok: 2)
+[HAPUS] Pocket puh (ID: 521) dipindahkan ke Recycle Bin

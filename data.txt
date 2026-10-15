@@ -1,0 +1,101 @@
+101,Indomie Goreng,50,3500,aktif
+102,Mie Sedaap Soto,40,3300,aktif
+103,Roti Tawar Sari Roti,20,15000,aktif
+104,Biskuit Roma Kelapa,40,8000,aktif
+105,Biskuit Oreo,35,9000,aktif
+106,Chitato Sapi Panggang,25,11000,aktif
+107,Lays Rumput Laut,30,10500,aktif
+108,Tango Wafer Coklat,45,8500,aktif
+109,Kacang Garuda,44,7000,aktif
+110,Silverqueen Bar,15,20000,aktif
+111,Cadbury Dairy Milk,18,18000,aktif
+112,Nabati Richeese,60,2000,aktif
+113,Nabati Wafer,55,2500,aktif
+114,Ritz Crackers,40,9500,aktif
+115,Khong Guan Hebi,30,12000,aktif
+116,Piattos Keju,28,10000,aktif
+117,Cheetos Jagung,33,9500,aktif
+118,Doritos Nacho Cheese,22,15000,aktif
+119,Pringles Original,12,25000,aktif
+120,Tic Tac Mint,70,3000,aktif
+201,Aqua 600ml,96,4000,aktif
+202,Aqua 1500ml,80,7000,aktif
+203,Teh Botol Sosro,60,5000,aktif
+204,Teh Pucuk Harum,65,4500,aktif
+205,Teh Kotak Ultra,40,6000,aktif
+206,Kopi Kapal Api Sachet,90,2500,aktif
+207,Kopi Good Day Sachet,85,2800,aktif
+208,Kopi Torabika Sachet,75,3000,aktif
+209,ABC Susu Sachet,70,3200,aktif
+210,Milo Sachet,80,3500,aktif
+211,Ovomaltine Sachet,50,4000,aktif
+212,Fanta 390ml,45,5500,aktif
+213,Sprite 390ml,48,5500,aktif
+214,Coca Cola 390ml,55,6000,aktif
+215,Pepsi 390ml,42,5800,aktif
+216,Red Bull 250ml,30,12000,aktif
+217,Pocari Sweat 500ml,35,8500,aktif
+218,Mizone 500ml,38,8000,aktif
+219,You C 1000 140ml,60,4500,aktif
+220,Frutang 200ml,50,5000,aktif
+301,Pulpen Standard AE7,30,3000,aktif
+302,Pulpen Snowman,25,3500,aktif
+303,Pensil 2B Faber Castell,45,2000,aktif
+304,Pensil Mekanik 0.5,20,8000,aktif
+305,Buku Tulis 38 Sidu,25,5000,aktif
+306,Buku Tulis 58 Sidu,20,7000,aktif
+307,Buku Gambar A4,15,6000,aktif
+308,Penghapus Joyko,50,1500,aktif
+309,Penghapus Faber Castell,40,2000,aktif
+310,Penggaris 30cm,35,2500,aktif
+311,Penggaris 20cm,40,2000,aktif
+312,Stabilo Boss Highlighter,18,15000,aktif
+313,Spidol Snowman Permanent,22,8000,aktif
+314,Spidol Whiteboard,20,9000,aktif
+315,Tipe-X Kenko,25,7000,aktif
+316,Tipe-X Joyko,30,6500,aktif
+317,Lem Kertas Glue Stick,28,5000,aktif
+318,Lem Fox,35,4000,aktif
+319,Gunting Kertas,15,12000,aktif
+320,Cutter Besar,12,15000,aktif
+401,Sabun Lifebuoy 85g,50,4500,aktif
+402,Sabun Lux 85g,45,4200,aktif
+403,Sabun Dove 100g,30,6500,aktif
+404,Shampoo Pantene 160ml,25,22000,aktif
+405,Shampoo Clear 160ml,28,21000,aktif
+406,Shampoo Sunsilk 160ml,28,20000,aktif
+407,Pasta Gigi Pepsodent 120g,40,12000,aktif
+408,Pasta Gigi Close Up 120g,35,11000,aktif
+409,Pasta Gigi Sensodyne 100g,15,25000,aktif
+410,Sikat Gigi Formula,50,6000,aktif
+411,Sikat Gigi Oral-B,20,15000,aktif
+412,Deodoran Rexona Roll On,22,18000,aktif
+413,Deodoran Axe Spray,18,22000,aktif
+414,Sabun Cair Dettol 250ml,30,18000,aktif
+415,Sabun Cair Lifebuoy 250ml,28,17000,aktif
+416,Hand Sanitizer 100ml,40,12000,aktif
+417,Tissue Paseo 250 sheet,60,8000,aktif
+418,Tissue Tessa 250 sheet,55,7500,aktif
+419,Pembalut Charm 8pcs,35,15000,aktif
+420,Pembalut Softex 8pcs,30,14000,aktif
+501,Baterai ABC AA 4pcs,6,10000,aktif
+502,Baterai ABC AAA 4pcs,35,9000,aktif
+503,Baterai Energizer AA 4pcs,20,25000,aktif
+504,Lampu Philips LED 5W,25,18000,aktif
+505,Lampu Philips LED 8W,17,22000,aktif
+506,Lampu Hannochs LED 5W,30,12000,aktif
+507,Kabel USB Type-C,15,25000,aktif
+508,Kabel USB Micro,15,20000,aktif
+509,Headset Earphone,22,35000,aktif
+510,Headset Gaming,10,75000,aktif
+511,Mouse Wireless Logitech,12,85000,aktif
+512,Mouse Wireless Advan,15,45000,aktif
+513,Keyboard USB,14,55000,aktif
+514,Flashdisk 16GB,20,60000,aktif
+515,Flashdisk 32GB,18,85000,aktif
+516,Powerbank 10000mAh,10,120000,aktif
+517,Charger HP 10W,25,35000,aktif
+518,Charger HP 18W,20,55000,aktif
+519,Kipas Mini USB,15,30000,aktif
+520,Lampu Emergency,12,65000,aktif
+521,Pocket puh,2,999999,terhapus

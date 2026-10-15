@@ -1,0 +1,99 @@
+=== TRANSAKSI BARU ===
+- Insto Regular 7.5ml x1 = Rp17.000
+TOTAL: Rp17.000
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+- Minyak Goreng Bimoli 2L x5 = Rp192.500
+TOTAL: Rp192.500
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+- Indomie Goreng x2 = Rp6.200
+- Taro Net Seaweed 65g x3 = Rp30.000
+TOTAL: Rp36.200
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+Tanggal : 2026-09-28 08:10
+----------------------------------------
+- Beras Rojo Lele 5kg x2 = Rp148.000
+TOTAL: Rp148.000
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+Tanggal : 2026-09-28 08:18
+----------------------------------------
+- Beras Rojo Lele 5kg x8 = Rp592.000
+TOTAL: Rp592.000
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+Tanggal : 2026-10-03 18:09
+----------------------------------------
+- SilverQueen Milk Chocolate 58g x3 = Rp49.500
+- Kusuka Keripik Singkong 180g x6 = Rp105.000
+TOTAL: Rp154.500
+----------------------------------------
+
+=== TRANSAKSI BARU ===
+Tanggal : 2026-10-09 10:41
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [501] Baterai ABC AA 4pcs x34 = Rp340.000
+TOTAL: Rp340.000
+Dibayar: Rp340.000
+Kembalian: Rp0
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: BRP00220261009110158
+Tanggal : 2026-10-09 11:01
+Kasir   : Xavier
+Metode  : Debit
+----------------------------------------
+- [508] Kabel USB Micro x3 = Rp60.000
+- [201] Aqua 600ml x4 = Rp16.000
+- [109] Kacang Garuda x6 = Rp42.000
+TOTAL: Rp118.000
+Dibayar: Rp118.000
+Kembalian: Rp0
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: BRP00320261009110306
+Tanggal : 2026-10-09 11:03
+Kasir   : Xavier
+Metode  : Cash
+----------------------------------------
+- [406] Shampoo Sunsilk 160ml x2 = Rp40.000
+TOTAL: Rp40.000
+Dibayar: Rp50.000
+Kembalian: Rp10.000
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00420261009110731
+Tanggal : 2026-10-09 11:07
+Kasir   : Xavier
+Metode  : Debit
+----------------------------------------
+- [505] Lampu Philips LED 8W x3 = Rp66.000
+TOTAL: Rp66.000
+Dibayar: Rp66.000
+Kembalian: Rp0
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261012082636
+Tanggal : 2026-10-12 08:26
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [521] Pocket puh x1 = Rp999.999
+TOTAL: Rp999.999
+Dibayar: Rp999.999
+Kembalian: Rp0
+----------------------------------------
+
