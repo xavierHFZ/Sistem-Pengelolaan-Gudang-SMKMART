@@ -1,6 +1,6 @@
 import os
-import re
 import sys
+import re
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -73,7 +73,7 @@ def tim_sort(arr, key_func=lambda x: x[0], reverse=False):
     return arr
 
 def muat_kategori():
-    global next_kategori_id
+    global kategori_by_id, kategori_by_name, next_kategori_id
     kategori_by_id.clear()
     kategori_by_name.clear()
     max_id = 0
@@ -87,12 +87,14 @@ def muat_kategori():
                         nama = parts[1].strip()
                         kategori_by_id[kid] = nama
                         kategori_by_name[nama.lower()] = kid
-                        max_id = max(max_id, kid)
+                        if kid > max_id:
+                            max_id = kid
     next_kategori_id = max_id + 1
 
 def simpan_kategori():
     with open(KATEGORI_FILE, "w", encoding="utf-8") as f:
-        f.writelines(f"{kid},{kategori_by_id[kid]}\n" for kid in sorted(kategori_by_id.keys()))
+        for kid in sorted(kategori_by_id.keys()):
+            f.write(f"{kid},{kategori_by_id[kid]}\n")
 
 def tambah_kategori(nama):
     global next_kategori_id
@@ -117,10 +119,11 @@ def id_ke_kategori(id_barang):
 def generate_id(id_kategori):
     base = id_kategori * 100
     max_seq = 0
-    for detail in data_barang.values():
+    for nama, detail in data_barang.items():
         if id_ke_kategori(detail['id']) == id_kategori:
             seq = detail['id'] - base
-            max_seq = max(max_seq, seq)
+            if seq > max_seq:
+                max_seq = seq
     if max_seq >= 99:
         return None
     return base + max_seq + 1
@@ -138,6 +141,7 @@ def hitung_transaksi_hari_ini():
     return jumlah
 
 def muat_data():
+    global data_barang
     data_barang.clear()
     muat_kategori()
     if os.path.exists(DATA_FILE):
@@ -145,13 +149,23 @@ def muat_data():
             for line in f:
                 if line.strip():
                     parts = line.strip().split(",")
-                    if len(parts) == 5:
+                    if len(parts) == 6:
+                        id_barang, nama, stok, harga, status, batas_restock = [p.strip() for p in parts]
+                        data_barang[nama] = {
+                            "id": int(id_barang),
+                            "stok": int(stok),
+                            "harga": int(harga),
+                            "status": status,
+                            "batas_restock": int(batas_restock)
+                        }
+                    elif len(parts) == 5:
                         id_barang, nama, stok, harga, status = [p.strip() for p in parts]
                         data_barang[nama] = {
                             "id": int(id_barang),
                             "stok": int(stok),
                             "harga": int(harga),
-                            "status": status
+                            "status": status,
+                            "batas_restock": 5
                         }
                     elif len(parts) == 4:
                         id_barang, nama, stok, harga = [p.strip() for p in parts]
@@ -159,13 +173,14 @@ def muat_data():
                             "id": int(id_barang),
                             "stok": int(stok),
                             "harga": int(harga),
-                            "status": "aktif"
+                            "status": "aktif",
+                            "batas_restock": 5
                         }
 
 def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         for nama, detail in data_barang.items():
-            f.write(f"{detail['id']},{nama},{detail['stok']},{detail['harga']},{detail['status']}\n")
+            f.write(f"{detail['id']},{nama},{detail['stok']},{detail['harga']},{detail['status']},{detail.get('batas_restock', 5)}\n")
 
 def get_flat_items():
     items = []
@@ -194,13 +209,14 @@ def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG"):
         kat_items.sort(key=lambda x: x[1]['id'])
         print(f"\nKategori: {kategori_by_id[kid]} (ID: {kid}, Range: {kid*100+1}-{kid*100+99})")
         print("--------------------------------------------------------------------------")
-        print(f"{'ID':<6} {'Nama Barang':<30} {'Stok':<8} {'Harga':<12}")
+        print(f"{'ID':<6} {'Nama Barang':<30} {'Stok':<8} {'Batas Restock':<14} {'Harga':<12}")
         print("--------------------------------------------------------------------------")
         for nama, detail in kat_items:
             harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
-            print(f"{detail['id']:<6} {nama:<30} {detail['stok']:<8} {harga_fmt:<12}")
-            if detail['stok'] < 5:
-                print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']}. Segera restock!")
+            batas_restock = detail.get('batas_restock', 5)
+            print(f"{detail['id']:<6} {nama:<30} {detail['stok']:<8} {batas_restock:<14} {harga_fmt:<12}")
+            if detail['stok'] < batas_restock:
+                print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']} (batas restock: {batas_restock}). Segera restock!")
     print("\n==========================================================================")
 
 def cari_barang_linear(data_barang):
@@ -384,8 +400,12 @@ def tambah_barang():
     try:
         jumlah_barang = int(input("Masukkan jumlah barang: "))
         harga_barang = int(input("Masukkan harga barang: "))
+        batas_restock = int(input("Masukkan batas minimum stok untuk peringatan restock: "))
     except ValueError:
-        print("\n[!] Error: Jumlah dan harga harus berupa angka!")
+        print("\n[!] Error: Jumlah, harga, dan batas restock harus berupa angka!")
+        return
+    if batas_restock < 0:
+        print("\n[!] Batas restock tidak boleh negatif!")
         return
     id_barang = generate_id(id_kat)
     if id_barang is None:
@@ -395,7 +415,8 @@ def tambah_barang():
         "id": id_barang,
         "stok": jumlah_barang,
         "harga": harga_barang,
-        "status": "aktif"
+        "status": "aktif",
+        "batas_restock": batas_restock
     }
     simpan_data()
     with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
@@ -496,8 +517,20 @@ def ubah_barang():
         try:
             jumlah_baru = int(input("Masukkan jumlah barang baru: "))
             harga_baru = int(input("Masukkan harga barang baru: "))
+            batas_restock_input = input(
+                f"Masukkan batas minimum stok untuk peringatan restock "
+                f"(kosongkan untuk tetap {detail_lama.get('batas_restock', 5)}): "
+            ).strip()
+            batas_restock = (
+                int(batas_restock_input)
+                if batas_restock_input
+                else detail_lama.get('batas_restock', 5)
+            )
         except ValueError:
             print("\n[!] Error: Masukkan input angka yang valid!")
+            return
+        if batas_restock < 0:
+            print("\n[!] Batas restock tidak boleh negatif!")
             return
         if nama_baru != nama_lama:
             if nama_baru in data_barang:
@@ -517,7 +550,8 @@ def ubah_barang():
             "id": id_barang_baru,
             "stok": jumlah_baru,
             "harga": harga_baru,
-            "status": "aktif"
+            "status": "aktif",
+            "batas_restock": batas_restock
         }
         simpan_data()
         print("\n[V] Data barang berhasil diperbarui.")
@@ -644,6 +678,7 @@ def menu_recycle_bin():
             print("\n[!] Pilihan tidak valid.")
 
 def checkout():
+    global current_user
     if not keranjang:
         print("\n[!] Keranjang belanja kosong. Silakan tambah barang terlebih dahulu.")
         return
@@ -748,7 +783,7 @@ while login:
     password = input("Password: ").strip()
 
     if username == "0" and password == "0":
-        sys.exit()
+        exit()
 
     login_berhasil = False
     role_login = ""
@@ -769,8 +804,8 @@ while login:
 
     current_user = username
     os.system('cls' if os.name == 'nt' else 'clear')
-    print(f"\n[V] Login berhasil! Selamat datang, {username}")
-    print(f"Peran Anda: {role_login}")
+    print("\n[V] Login berhasil! Selamat datang, {}".format(username))
+    print("Peran Anda: {}".format(role_login))
 
     if role_login.strip().lower() == "admin":
         pengulangan = True
