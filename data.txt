@@ -1,4 +1,4 @@
-101,Indomie Goreng,48,3500,aktif,5
+b101,Indomie Goreng,48,3500,aktif,5
 102,Mie Sedaap Soto,40,3300,aktif,5
 103,Roti Tawar Sari Roti,20,15000,aktif,5
 104,Biskuit Roma Kelapa,40,8000,aktif,5
@@ -98,6 +98,7 @@
 518,Charger HP 18W,20,55000,aktif,5
 519,Kipas Mini USB,15,30000,terhapus,5
 520,Lampu Emergency,12,65000,aktif,5
+521,DualShock 4,1,100000,aktif,2,4948872413657
 121,indomie rendang,47,4000,aktif,3
 122,8,5,5000,terhapus,3
 601,milo,34,2000,aktif,4
