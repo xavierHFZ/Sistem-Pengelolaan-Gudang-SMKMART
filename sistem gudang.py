@@ -286,73 +286,150 @@ def summary_penjualan():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
         print("\n[!] Belum ada riwayat transaksi.")
         return
-    nama_bulan = {
-        1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
-        7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
-    }
-    transaksi_bulanan = {}
+    
+    
     with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
         isi = file.read()
+    
     transaksi = isi.split("=== TRANSAKSI ===")
+    semua_transaksi = []
+    
     for data in transaksi:
         if not data.strip():
             continue
         tanggal_match = re.search(r"Tanggal\s*:\s*(\d{4}-\d{2}-\d{2})", data)
         total_match = re.search(r"TOTAL:\s*Rp([\d.]+)", data)
         if tanggal_match and total_match:
-            tanggal = datetime.strptime(tanggal_match.group(1), "%Y-%m-%d")
+            tgl_str = tanggal_match.group(1)
+            dt_obj = datetime.strptime(tgl_str, "%Y-%m-%d")
             total = int(total_match.group(1).replace(".", ""))
-            bulan_key = tanggal.strftime("%Y-%m")
-            tanggal_key = tanggal.day
-            if bulan_key not in transaksi_bulanan:
-                transaksi_bulanan[bulan_key] = {}
-            if tanggal_key not in transaksi_bulanan[bulan_key]:
-                transaksi_bulanan[bulan_key][tanggal_key] = 0
-            transaksi_bulanan[bulan_key][tanggal_key] += total
-    if not transaksi_bulanan:
+
+            items_terjual = []
+            baris_data = data.split("\n")
+            for baris in baris_data:
+                item_match = re.search(r"-\s*\[(\d+)\]\s*(.*?)\s*x(\d+)\s*=\s*Rp([\d.]+)", baris)
+                if item_match:
+                    id_brg = int(item_match.group(1))
+                    nama_brg = item_match.group(2).strip()
+                    qty = int(item_match.group(3))
+                    subtotal = int(item_match.group(4).replace(".", ""))
+                    items_terjual.append({
+                        "id": id_brg,
+                        "nama": nama_brg,
+                        "qty": qty,
+                        "subtotal": subtotal
+                    })
+            
+            semua_transaksi.append({
+                "tanggal": dt_obj,
+                "total": total,
+                "items": items_terjual
+            })
+            
+    if not semua_transaksi:
         print("\n[!] Tidak ada data transaksi yang dapat dibaca.")
         return
-    bulan_tersedia = sorted(transaksi_bulanan.keys())
+
     while True:
         print("\n==========================================================================")
-        print("                         SUMMARY PENJUALAN")
+        print("                         SUMMARY PENJUALAN & ITEM TERJUAL                 ")
         print("==========================================================================")
-        print("Pilih bulan yang ingin dilihat:")
-        print()
-        for idx, bulan_key in enumerate(bulan_tersedia, start=1):
-            tahun, bulan = map(int, bulan_key.split("-"))
-            print(f"{idx}. {nama_bulan[bulan]} {tahun}")
+        print("1. Lihat Summary Berdasarkan Rentang Tanggal (Custom Range)")
+        print("2. Lihat Summary 7 Hari Terakhir")
+        print("3. Lihat Summary 30 Hari Terakhir")
         print("0. Kembali")
         print("==========================================================================")
-        pilihan = input("Masukkan pilihan bulan: ").strip()
+        pilihan = input("Masukkan pilihan (0-3): ").strip()
+        
         if pilihan == "0":
             return
-        try:
-            nomor_bulan = int(pilihan)
-            if nomor_bulan < 1 or nomor_bulan > len(bulan_tersedia):
-                print("\n[!] Pilihan bulan tidak valid.")
+        
+        start_date = None
+        end_date = datetime.now()
+        
+        if pilihan == "1":
+            print("\nFormat tanggal: YYYY-MM-DD (Contoh: 2026-01-01)")
+            tgl_mulai_str = input("Masukkan Tanggal Mulai: ").strip()
+            tgl_selesai_str = input("Masukkan Tanggal Selesai: ").strip()
+            try:
+                start_date = datetime.strptime(tgl_mulai_str, "%Y-%m-%d")
+                end_date = datetime.strptime(tgl_selesai_str, "%Y-%m-%d")
+            except ValueError:
+                print("\n[!] Format tanggal salah! Gunakan format YYYY-MM-DD.")
                 continue
-            bulan_dipilih = bulan_tersedia[nomor_bulan - 1]
-            tahun, bulan = map(int, bulan_dipilih.split("-"))
-            data_harian = transaksi_bulanan[bulan_dipilih]
-            print("\n==========================================================================")
-            print(f"                    PENJUALAN {nama_bulan[bulan].upper()} {tahun}")
-            print("==========================================================================")
-            print(f"{'Tanggal':<25} {'Total Penjualan':>20}")
+        elif pilihan == "2":
+            from datetime import timedelta
+            start_date = datetime.now() - timedelta(days=7)
+        elif pilihan == "3":
+            from datetime import timedelta
+            start_date = datetime.now() - timedelta(days=30)
+        else:
+            print("\n[!] Pilihan tidak valid.")
+            continue
+            
+        if start_date > end_date:
+            print("\n[!] Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
+            continue
+            
+       
+        rekap_harian = {}
+        akumulasi_barang = {}
+        grand_total = 0
+        total_trx_count = 0
+        
+        for trx in semua_transaksi:
+            dt_obj = trx["tanggal"]
+            if start_date.date() <= dt_obj.date() <= end_date.date():
+                tgl_key = dt_obj.strftime("%Y-%m-%d")
+                
+                if tgl_key not in rekap_harian:
+                    rekap_harian[tgl_key] = {"total": 0, "count": 0}
+                rekap_harian[tgl_key]["total"] += trx["total"]
+                rekap_harian[tgl_key]["count"] += 1
+                
+                grand_total += trx["total"]
+                total_trx_count += 1
+                
+                
+                for item in trx["items"]:
+                    nama = item["nama"]
+                    if nama not in akumulasi_barang:
+                        akumulasi_barang[nama] = {"id": item["id"], "qty": 0, "subtotal": 0}
+                    akumulasi_barang[nama]["qty"] += item["qty"]
+                    akumulasi_barang[nama]["subtotal"] += item["subtotal"]
+                
+        print("\n==========================================================================")
+        print(f"       LAPORAN PENJUALAN: {start_date.strftime('%Y-%m-%d')} s/d {end_date.strftime('%Y-%m-%d')}")
+        print("==========================================================================")
+        print(f"{'Tanggal':<15} {'Jml Transaksi':<15} {'Total Penjualan':>22}")
+        print("--------------------------------------------------------------------------")
+        
+        if not rekap_harian:
+            print("                Tidak ada transaksi pada rentang tanggal ini.             ")
+        else:
+            for tgl in sorted(rekap_harian.keys()):
+                t_val = rekap_harian[tgl]["total"]
+                c_val = rekap_harian[tgl]["count"]
+                t_fmt = f"Rp{t_val:,.0f}".replace(",", ".")
+                print(f"{tgl:<15} {c_val:<15} {t_fmt:>22}")
+                
             print("--------------------------------------------------------------------------")
-            total_bulan = 0
-            for tanggal in sorted(data_harian.keys()):
-                total_hari = data_harian[tanggal]
-                total_bulan += total_hari
-                total_fmt = f"Rp{total_hari:,.0f}".replace(",", ".")
-                print(f"{tanggal:02d} {nama_bulan[bulan]:<18} {total_fmt:>20}")
+            print("\n----------------- RINCIAN BARANG YANG TERJUAL ----------------------------")
+            print(f"{'ID':<6} {'Nama Barang':<30} {'Terjual':<10} {'Total Pendapatan':<15}")
             print("--------------------------------------------------------------------------")
-            total_bulan_fmt = f"Rp{total_bulan:,.0f}".replace(",", ".")
-            print(f"{'TOTAL BULAN':<25} {total_bulan_fmt:>20}")
-            print("==========================================================================")
-            input("\nTekan Enter untuk kembali...")
-        except ValueError:
-            print("\n[!] Masukkan angka yang valid.")
+            
+            
+            sorted_items = sorted(akumulasi_barang.items(), key=lambda x: x[1]["qty"], reverse=True)
+            for nama, detail in sorted_items:
+                sub_fmt = f"Rp{detail['subtotal']:,.0f}".replace(",", ".")
+                print(f"{detail['id']:<6} {nama:<30} {detail['qty']:<10} {sub_fmt:<15}")
+                
+        print("--------------------------------------------------------------------------")
+        grand_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
+        print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {grand_fmt:>24}")
+        print("==========================================================================")
+        input("\nTekan Enter untuk melanjutkan...")
+    
 
 def tambah_barang():
     nama_barang = input("Masukkan nama barang: ").strip()

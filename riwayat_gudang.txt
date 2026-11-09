@@ -4,3 +4,13 @@
 [TAMBAH] Barang Baru: Pocket puh | ID: 521 | Kategori: Elektronik (ID: 5) | Jumlah: 1 | Harga: Rp999.999
 [RESTOK] Pocket puh +2 (Total Stok: 2)
 [HAPUS] Pocket puh (ID: 521) dipindahkan ke Recycle Bin
+[TAMBAH] Barang Baru: indomie rendang | ID: 121 | Kategori: Makanan (ID: 1) | Jumlah: 47 | Harga: Rp4.000
+[TAMBAH] Barang Baru: 8 | ID: 122 | Kategori: Makanan (ID: 1) | Jumlah: 5 | Harga: Rp5.000
+[HAPUS PERMANEN] Pocket puh (ID: 521) dihapus permanen
+[HAPUS] 8 (ID: 122) dipindahkan ke Recycle Bin
+[TAMBAH] Barang Baru: milo | ID: 601 | Kategori: Susu (ID: 6) | Jumlah: 4 | Harga: Rp2.000
+[RESTOK] milo +40 (Total Stok: 44)
+[HAPUS] milo (ID: 601) dipindahkan ke Recycle Bin
+[HAPUS] Kipas Mini USB (ID: 519) dipindahkan ke Recycle Bin
+[RESTORE] milo (ID: 601) dikembalikan dari Recycle Bin
+[TAMBAH] Barang Baru: Dancow | ID: 602 | Kategori: Susu (ID: 6) | Jumlah: 40 | Harga: Rp1.000

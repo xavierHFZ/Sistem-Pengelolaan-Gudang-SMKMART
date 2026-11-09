@@ -97,3 +97,28 @@ Dibayar: Rp999.999
 Kembalian: Rp0
 ----------------------------------------
 
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261109081608
+Tanggal : 2026-11-09 08:16
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [101] Indomie Goreng x2 = Rp7.000
+TOTAL: Rp7.000
+Dibayar: Rp7.000
+Kembalian: Rp0
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00220261109090828
+Tanggal : 2026-11-09 09:08
+Kasir   : Xavier
+Metode  : Debit
+----------------------------------------
+- [601] milo x10 = Rp20.000
+- [602] Dancow coklat x4 = Rp8.000
+TOTAL: Rp28.000
+Dibayar: Rp28.000
+Kembalian: Rp0
+----------------------------------------
+
