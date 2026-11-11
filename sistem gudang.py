@@ -286,8 +286,7 @@ def summary_penjualan():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
         print("\n[!] Belum ada riwayat transaksi.")
         return
-    
-    
+       
     with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
         isi = file.read()
     
@@ -370,8 +369,7 @@ def summary_penjualan():
         if start_date > end_date:
             print("\n[!] Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
             continue
-            
-       
+                  
         rekap_harian = {}
         akumulasi_barang = {}
         grand_total = 0
