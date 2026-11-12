@@ -14,3 +14,4 @@
 [HAPUS] Kipas Mini USB (ID: 519) dipindahkan ke Recycle Bin
 [RESTORE] milo (ID: 601) dikembalikan dari Recycle Bin
 [TAMBAH] Barang Baru: Dancow | ID: 602 | Kategori: Susu (ID: 6) | Jumlah: 40 | Harga: Rp1.000
+[TAMBAH] Barang Baru: indomilk | ID: 603 | Kategori: Susu (ID: 6) | Jumlah: 20 | Harga: Rp2.000
