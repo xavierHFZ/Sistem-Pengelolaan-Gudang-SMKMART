@@ -18,7 +18,7 @@ next_kategori_id = 1
 current_user = ""
 
 admin_menu = False
-pengulangan = False  # untuk admin gudang
+Gudang = False  # untuk admin gudang
 kasir = False
 login = True
 
@@ -151,8 +151,11 @@ def muat_data():
             for line in f:
                 if line.strip():
                     parts = line.strip().split(",")
-                    if len(parts) == 7:
-                        id_barang, nama, stok, harga, status, batas_restock, barcode = [p.strip() for p in parts]
+                    if len(parts) == 8:
+                         id_barang, nama, stok, harga, status, batas_restock, hargaBeli, barcode = [p.strip() for p in parts]
+                    elif len(parts) == 7:
+                        id_barang, nama, stok, harga, status, batas_restock, hargaBeli = [p.strip() for p in parts]
+                        barcode = ""
                     elif len(parts) == 6:
                         id_barang, nama, stok, harga, status, batas_restock = [p.strip() for p in parts]
                         barcode = ""
@@ -175,6 +178,7 @@ def muat_data():
                             "status": status,
                             "batas_restock": int(batas_restock),
                             "barcode": barcode,
+                            "hargaBeli": int(hargaBeli) if len(parts) == 8 else None
                         }
                     except ValueError:
                         print(f"[!] Baris data barang dilewati karena format angka tidak valid: {line.strip()}")
@@ -1065,6 +1069,7 @@ def checkout():
     print("==========================================================================")
     for item in keranjang:
         subtotal = item['jumlah'] * item['harga']
+        hargabeli = data_barang[item['nama']]
         total_harga += subtotal
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {subtotal_fmt:<15}")
@@ -1086,6 +1091,7 @@ def checkout():
     else:
         print("\n[!] Metode pembayaran tidak valid.")
         return
+
     if metode == "Cash":
         try:
             uang_dibayarkan = int(input("\nMasukkan jumlah uang yang dibayarkan: Rp"))
@@ -1100,12 +1106,25 @@ def checkout():
         uang_dibayarkan = total_harga
         kembalian = 0
         print(f"\n[V] Pembayaran via {metode} sebesar {total_fmt}.")
+
+    # Hitung laba secara aman untuk semua metode pembayaran (Cash, Debit, QRIS)
+    total_modal = 0
+    for item in keranjang:
+        detail_brg = data_barang.get(item['nama'], {})
+        hb = detail_brg.get('hargaBeli')
+        if hb is not None:
+            total_modal += hb * item['jumlah']
+    laba_val = total_harga - total_modal
+
     for item in keranjang:
         if item['nama'] in data_barang and data_barang[item['nama']].get('status', 'aktif') == 'aktif':
             data_barang[item['nama']]['stok'] -= item['jumlah']
+            
     simpan_data()
+    
     nomor_urut = hitung_transaksi_hari_ini() + 1
     kode_transaksi = f"SMK{nomor_urut:03d}"
+    
     log_transaksi = "=== TRANSAKSI ===\n"
     log_transaksi += f"ID Transaksi: {kode_transaksi}{waktu_transaksi.strftime('%Y%m%d%H%M%S')}\n"
     log_transaksi += f"Tanggal : {waktu_str}\n"
@@ -1116,12 +1135,16 @@ def checkout():
         subtotal = item['jumlah'] * item['harga']
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         log_transaksi += f"- [{item['id']}] {item['nama']} x{item['jumlah']} = {subtotal_fmt}\n"
+        
     total_fmt_log = f"Rp{total_harga:,.0f}".replace(",", ".")
     dibayar_fmt = f"Rp{uang_dibayarkan:,.0f}".replace(",", ".")
     kembali_fmt = f"Rp{kembalian:,.0f}".replace(",", ".")
+    laba_fmt = f"Rp{laba_val:,.0f}".replace(",", ".")
+    
     log_transaksi += f"TOTAL: {total_fmt_log}\n"
     log_transaksi += f"Dibayar: {dibayar_fmt}\n"
     log_transaksi += f"Kembalian: {kembali_fmt}\n"
+    log_transaksi += f"Laba: {laba_fmt}\n"
     log_transaksi += "----------------------------------------\n\n"
     with open(RIWAYAT_TRANSAKSI_FILE, "a", encoding="utf-8") as riwayat_file:
         riwayat_file.write(log_transaksi)
@@ -1142,10 +1165,10 @@ def checkout():
     print("==========================================================================")
 
 def main():
-    global admin_menu, pengulangan, kasir, login, current_user
+    global admin_menu, Gudang, kasir, login, current_user
     while login:
         admin_menu = False
-        pengulangan = False
+        Gudang = False
         kasir = False
 
         print("==========================================================================")
@@ -1186,7 +1209,7 @@ def main():
         if role_clean == "admin":
             admin_menu = True
         elif role_clean == "admin gudang":
-            pengulangan = True
+            Gudang = True
         elif role_clean == "kasir":
             kasir = True
 
@@ -1196,7 +1219,7 @@ def main():
         print("             APLIKASI SISTEM PENGELOLAAN BARANG SMKMART                  ")
         print("==========================================================================")
 
-        # 1. MENU UTAMA UNTUK ROLE "admin"
+        
         while admin_menu:
             print("\n==========================================================================")
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
@@ -1209,10 +1232,12 @@ def main():
             print("6. Laporan Stok dan Aktivitas Gudang (Riwayat Gudang)")
             print("7. Log Aktivitas (Riwayat Transaksi)")
             print("8. Ganti Password Sendiri")
-            print("9. Kembali ke halaman login")
+            print("9. Menu Kasir")
+            print("10. Menu Gudang")
+            print("0. Kembali ke halaman login")
             print("==========================================================================")
 
-            pilihan_adm = input("Masukkan pilihan menu (1-9): ").strip()
+            pilihan_adm = input("Masukkan pilihan menu (1-10): ").strip()
 
             if pilihan_adm == "1":
                 kelola_pengguna()
@@ -1253,13 +1278,19 @@ def main():
             elif pilihan_adm == "8":
                 ganti_password_sendiri()
             elif pilihan_adm == "9":
+                kasir = True
+                admin_menu = False
+            elif pilihan_adm == "10":
+                Gudang = True
+                admin_menu = False
+            elif pilihan_adm == "0":
                 print("\nKembali ke halaman login...")
                 admin_menu = False
             else:
                 print("\n[!] Pilihan tidak valid.")
 
-        # 2. MENU UTAMA UNTUK ROLE "admin gudang"
-        while pengulangan:
+        
+        while Gudang:
             print("\n==========================================================================")
             print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
             print("==========================================================================")
@@ -1273,10 +1304,10 @@ def main():
             print("8. Summary Penjualan")
             print("9. Recycle Bin")
             print("10. Kelola Barcode")
-            print("11. Kembali ke halaman login")
+            print("0. Kembali ke halaman login")
             print("==========================================================================")
 
-            pilihan = input("Masukkan pilihan menu (1-11): ").strip()
+            pilihan = input("Masukkan pilihan menu (0-10): ").strip()
 
             if pilihan == "1":
                 tambah_barang()
@@ -1309,13 +1340,12 @@ def main():
                 menu_recycle_bin()
             elif pilihan == "10":
                 kelola_barcode()
-            elif pilihan == "11":
+            elif pilihan == "0":
                 print("\nKembali ke halaman login...")
-                pengulangan = False
+                Gudang = False
             else:
-                print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 1-11.")
+                print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
 
-        # 3. MENU UTAMA UNTUK ROLE "kasir"
         while kasir:
             print("\n==========================================================================")
             print("                          SISTEM KASIR SMKMART                            ")
@@ -1328,10 +1358,10 @@ def main():
             print("6. Cari Barang")
             print("7. Summary Penjualan")
             print("8. Barcode Scanner")
-            print("9. Kembali ke Halaman Login")
+            print("0. Kembali ke Halaman Login")
             print("==========================================================================")
 
-            pilihan_kasir = input("Masukkan pilihan menu (1-9): ").strip()
+            pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
 
             if pilihan_kasir == "1":
                 if not data_barang:
@@ -1441,7 +1471,7 @@ def main():
                 summary_penjualan()
             elif pilihan_kasir == "8":
                 scanner_browser = scanner_barang()
-            elif pilihan_kasir == "9":
+            elif pilihan_kasir == "0":
                 print("\nKembali ke halaman login...")
                 kasir = False
             else:

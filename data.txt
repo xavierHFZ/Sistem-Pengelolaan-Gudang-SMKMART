@@ -1,4 +1,4 @@
-101,Indomie Goreng,48,3500,aktif,5,
+101,Indomie Goreng,39,3500,aktif,5,
 102,Mie Sedaap Soto,40,3300,aktif,5,
 103,Roti Tawar Sari Roti,20,15000,aktif,5,
 104,Biskuit Roma Kelapa,40,8000,aktif,5,
