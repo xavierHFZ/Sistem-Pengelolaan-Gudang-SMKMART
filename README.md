@@ -50,13 +50,13 @@ Berkas berikut berada di direktori yang sama dengan program:
 | Berkas | Kegunaan |
 | --- | --- |
 | `User.txt` | Data login dan peran pengguna |
-| `data.txt` | Data barang: ID internal, nama, stok, harga, status, batas restock, dan barcode opsional |
+| `data.txt` | Data barang: ID internal, nama, stok, harga jual, status, batas restock, harga beli opsional, dan barcode opsional |
 | `kategori.txt` | Daftar kategori barang |
 | `riwayat_gudang.txt` | Catatan perubahan persediaan |
 | `riwayat_transaksi.txt` | Catatan transaksi penjualan |
 | `keranjang.txt` | Berkas yang disertakan; isi keranjang aktif disimpan sementara selama aplikasi berjalan |
 
-Data disimpan sebagai teks lokal, bukan di basis data. `data.txt` versi lama dengan empat, lima, atau enam kolom tetap dapat dibaca; barcode disimpan pada kolom ketujuh dan akan ditulis saat data barang disimpan. Barcode diperlakukan sebagai teks agar angka nol di depan tetap terjaga. Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
+Data disimpan sebagai teks lokal, bukan di basis data. Aplikasi membaca format lama empat sampai tujuh kolom dan menyimpan format saat ini dalam delapan kolom, dengan harga beli opsional dan barcode di bagian akhir. Barcode diperlakukan sebagai teks agar angka nol di depan tetap terjaga. Untuk format lama tujuh kolom, aplikasi mengenali angka 8, 12, 13, atau 14 digit sebagai barcode; angka lain dianggap sebagai harga beli. Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
 
 ## Catatan keamanan dan batasan
 
