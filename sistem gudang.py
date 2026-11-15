@@ -2,6 +2,7 @@ import os
 import sys
 import re
 from datetime import datetime
+import getpass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "data.txt")
@@ -362,14 +363,14 @@ def summary_penjualan():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
         print("\n[!] Belum ada riwayat transaksi.")
         return
-    
-    
+
+
     with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
         isi = file.read()
-    
+
     transaksi = isi.split("=== TRANSAKSI ===")
     semua_transaksi = []
-    
+
     for data in transaksi:
         if not data.strip():
             continue
@@ -395,13 +396,13 @@ def summary_penjualan():
                         "qty": qty,
                         "subtotal": subtotal
                     })
-            
+
             semua_transaksi.append({
                 "tanggal": dt_obj,
                 "total": total,
                 "items": items_terjual
             })
-            
+
     if not semua_transaksi:
         print("\n[!] Tidak ada data transaksi yang dapat dibaca.")
         return
@@ -414,13 +415,13 @@ def summary_penjualan():
         print("0. Kembali")
         print("==========================================================================")
         pilihan = input("Masukkan pilihan (0-1): ").strip()
-        
+
         if pilihan == "0":
             return
-        
+
         start_date = None
         end_date = datetime.now()
-        
+
         if pilihan == "1":
             print("\nFormat tanggal: YYYY-MM-DD (Contoh: 2026-01-01)")
             tgl_mulai_str = input("Masukkan Tanggal Mulai: ").strip()
@@ -434,47 +435,47 @@ def summary_penjualan():
         else:
             print("\n[!] Pilihan tidak valid.")
             continue
-            
+
         if start_date > end_date:
             print("\n[!] Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
             continue
 
         if start_date.date() == end_date.date():
             end_date = end_date.replace(hour=23, minute=59, second=59)
-            
-       
+
+
         rekap_harian = {}
         akumulasi_barang = {}
         grand_total = 0
         total_trx_count = 0
-        
+
         for trx in semua_transaksi:
             dt_obj = trx["tanggal"]
             if start_date.date() <= dt_obj.date() <= end_date.date():
                 tgl_key = dt_obj.strftime("%Y-%m-%d")
-                
+
                 if tgl_key not in rekap_harian:
                     rekap_harian[tgl_key] = {"total": 0, "count": 0}
                 rekap_harian[tgl_key]["total"] += trx["total"]
                 rekap_harian[tgl_key]["count"] += 1
-                
+
                 grand_total += trx["total"]
                 total_trx_count += 1
-                
-                
+
+
                 for item in trx["items"]:
                     nama = item["nama"]
                     if nama not in akumulasi_barang:
                         akumulasi_barang[nama] = {"id": item["id"], "qty": 0, "subtotal": 0}
                     akumulasi_barang[nama]["qty"] += item["qty"]
                     akumulasi_barang[nama]["subtotal"] += item["subtotal"]
-                
+
         print("\n==========================================================================")
         print(f"       LAPORAN PENJUALAN: {start_date.strftime('%Y-%m-%d')} s/d {end_date.strftime('%Y-%m-%d')}")
         print("==========================================================================")
         print(f"{'Tanggal':<15} {'Jml Transaksi':<15} {'Total Penjualan':>22}")
         print("--------------------------------------------------------------------------")
-        
+
         if not rekap_harian:
             print("                Tidak ada transaksi pada rentang tanggal ini.             ")
         else:
@@ -483,24 +484,24 @@ def summary_penjualan():
                 c_val = rekap_harian[tgl]["count"]
                 t_fmt = f"Rp{t_val:,.0f}".replace(",", ".")
                 print(f"{tgl:<15} {c_val:<15} {t_fmt:>22}")
-                
+
             print("--------------------------------------------------------------------------")
             print("\n----------------- RINCIAN BARANG YANG TERJUAL ----------------------------")
             print(f"{'ID':<6} {'Nama Barang':<30} {'Terjual':<10} {'Total Pendapatan':<15}")
             print("--------------------------------------------------------------------------")
-            
-            
+
+
             sorted_items = sorted(akumulasi_barang.items(), key=lambda x: x[1]["qty"], reverse=True)
             for nama, detail in sorted_items:
                 sub_fmt = f"Rp{detail['subtotal']:,.0f}".replace(",", ".")
                 print(f"{detail['id']:<6} {nama:<30} {detail['qty']:<10} {sub_fmt:<15}")
-                
+
         print("--------------------------------------------------------------------------")
         grand_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
         print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {grand_fmt:>24}")
         print("==========================================================================")
         input("\nTekan Enter untuk melanjutkan...")
-    
+
 
 def tambah_barang():
     nama_barang = input("Masukkan nama barang: ").strip()
@@ -1025,7 +1026,7 @@ def main():
         print("Masukkan username dan password untuk masuk ke sistem. (Default: admin/kasir)")
         print("(Keluar Aplikasi: 0)")
         username = input("Username: ").strip()
-        password = input("Password: ").strip()
+        password = getpass.getpass("Password: ")
 
         if username == "0" and password == "0":
             exit()
@@ -1077,7 +1078,7 @@ def main():
             print("8. Summary Penjualan")
             print("9. Recycle Bin")
             print("10. Kelola Barcode")
-            print("11. Kembali ke halaman login")
+            print("0. Kembali ke halaman login")
             print("==========================================================================")
 
             pilihan = input("Masukkan pilihan menu (1-11): ").strip()
@@ -1113,7 +1114,7 @@ def main():
                 menu_recycle_bin()
             elif pilihan == "10":
                 kelola_barcode()
-            elif pilihan == "11":
+            elif pilihan == "0":
                 print("\nKembali ke halaman login...")
                 pengulangan = False
             else:
@@ -1131,7 +1132,7 @@ def main():
             print("6. Cari Barang")
             print("7. Summary Penjualan")
             print("8. Barcode Scanner")
-            print("9. Kembali ke Halaman Login")
+            print("0. Kembali ke Halaman Login")
             print("==========================================================================")
 
             pilihan_kasir = input("Masukkan pilihan menu (1-9): ").strip()
@@ -1244,7 +1245,7 @@ def main():
                 summary_penjualan()
             elif pilihan_kasir == "8":
                 scanner_barang()
-            elif pilihan_kasir == "9":
+            elif pilihan_kasir == "0":
                 print("\nKembali ke halaman login...")
                 kasir = False
             else:
