@@ -122,3 +122,16 @@ Dibayar: Rp28.000
 Kembalian: Rp0
 ----------------------------------------
 
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261113153740
+Tanggal : 2026-11-13 15:37
+Kasir   : Xavier
+Metode  : Debit
+----------------------------------------
+- [101] Indomie Goreng x4 = Rp14.000
+TOTAL: Rp14.000
+Dibayar: Rp14.000
+Kembalian: Rp0
+Laba: Rp14.000
+----------------------------------------
+

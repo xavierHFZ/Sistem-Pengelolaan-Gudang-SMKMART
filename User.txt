@@ -1,4 +1,3 @@
 Xavier,Kasir,Kasir
 Rifgi,Admin,Admin
 Cleosa,Admin,Kasir
-Fadil,5164,Admin Gudang

@@ -922,7 +922,7 @@ def kelola_pengguna():
                 print("\n[!] Username dan password tidak boleh kosong.")
                 continue
                 
-            # Cek duplikat
+            
             users_list = []
             ada = False
             if os.path.exists(USER_FILE):
