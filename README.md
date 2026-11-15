@@ -10,7 +10,7 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 - Mendaftarkan dan mengelola barcode produk.
 - Melihat riwayat perubahan gudang dan ringkasan penjualan.
 - Memulihkan barang dari Recycle Bin atau menghapusnya secara permanen.
-- Melihat peringatan ketika stok barang kurang dari lima.
+- Melihat peringatan ketika stok barang di bawah batas restock yang ditetapkan.
 
 ### Kasir
 - Mencari dan memilih barang berdasarkan ID.
@@ -41,6 +41,8 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 
 Aplikasi meminta username dan password saat dijalankan. Data akun dibaca dari `User.txt`. Gunakan akun yang sudah dikonfigurasi di berkas tersebut. Masukkan `0` untuk username dan password jika ingin keluar dari layar login.
 
+Untuk memakai Barcode Scanner, pilih menu **Barcode Scanner** pada menu kasir. Scanner USB yang berfungsi sebagai keyboard dapat mengirim kode barcode lalu Enter. Daftarkan barcode produk terlebih dahulu melalui menu admin **Kelola Barcode** atau saat menambah/mengubah barang. Setiap pemindaian menambahkan satu unit; pemindaian kode yang sama menambah jumlah pada baris keranjang yang sama. Masukkan `0` untuk keluar dari mode scanner.
+
 ## Berkas data
 
 Berkas berikut berada di direktori yang sama dengan program:
@@ -48,13 +50,13 @@ Berkas berikut berada di direktori yang sama dengan program:
 | Berkas | Kegunaan |
 | --- | --- |
 | `User.txt` | Data login dan peran pengguna |
-| `data.txt` | Data barang, stok, harga, status, batas restock, dan barcode |
+| `data.txt` | Data barang: ID internal, nama, stok, harga jual, status, batas restock, harga beli opsional, dan barcode opsional |
 | `kategori.txt` | Daftar kategori barang |
 | `riwayat_gudang.txt` | Catatan perubahan persediaan |
 | `riwayat_transaksi.txt` | Catatan transaksi penjualan |
-| `keranjang.txt` | Berkas data keranjang yang disertakan dalam repositori |
+| `keranjang.txt` | Berkas yang disertakan; isi keranjang aktif disimpan sementara selama aplikasi berjalan |
 
-Data disimpan sebagai teks lokal, bukan di basis data. Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
+Data disimpan sebagai teks lokal, bukan di basis data. Aplikasi membaca format lama empat sampai tujuh kolom dan menyimpan format saat ini dalam delapan kolom, dengan harga beli opsional dan barcode di bagian akhir. Barcode diperlakukan sebagai teks agar angka nol di depan tetap terjaga. Untuk format lama tujuh kolom, aplikasi mengenali angka 8, 12, 13, atau 14 digit sebagai barcode; angka lain dianggap sebagai harga beli. Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
 
 ## Catatan keamanan dan batasan
 
