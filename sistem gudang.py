@@ -617,6 +617,8 @@ def summary_penjualan():
         akumulasi_barang = {}
         grand_total = 0
         total_trx_count = 0
+        laba_total = 0
+        laba_count = 0
 
         for trx in semua_transaksi:
             dt_obj = trx["tanggal"]
@@ -630,6 +632,8 @@ def summary_penjualan():
                 if trx["laba"] is not None:
                     rekap_harian[tgl_key]["laba"] += trx["laba"]
                     rekap_harian[tgl_key]["transaksi_bermodal"] += 1
+                    laba_total += trx["laba"]
+                    laba_count += 1
 
                 grand_total += trx["total"]
                 total_trx_count += 1
@@ -678,10 +682,6 @@ def summary_penjualan():
         print("----------------------------------------------------------------------------")
         grand_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
         print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {grand_fmt:>24}")
-        laba_total = sum(trx["laba"] for trx in semua_transaksi
-                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
-        laba_count = sum(1 for trx in semua_transaksi
-                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
         laba_total_fmt = f"Rp{laba_total:,.0f}".replace(",", ".")
         print(f"TOTAL LABA FIFO ({laba_count}/{total_trx_count} transaksi bermodal lengkap): {laba_total_fmt}")
         print("* Laba harian belum mencakup transaksi yang belum memiliki catatan modal FIFO.")
