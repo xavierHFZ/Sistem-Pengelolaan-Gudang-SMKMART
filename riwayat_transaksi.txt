@@ -150,3 +150,74 @@ Kembalian: Rp0
 Laba: Rp6.000
 ----------------------------------------
 
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261117074809
+Tanggal : 2026-11-17 07:48
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [505] Lampu Philips LED 8W x2 = Rp44.000
+TOTAL: Rp44.000
+Dibayar: Rp44.000
+Kembalian: Rp0
+Laba: Rp8.800
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261118110624
+Tanggal : 2026-11-18 11:06
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [411] Sikat Gigi Oral-B x1 = Rp15.000
+TOTAL: Rp15.000
+Dibayar: Rp15.000
+Kembalian: Rp0
+Laba: Rp3.000
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00220261118110909
+Tanggal : 2026-11-18 11:09
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+- [411] Sikat Gigi Oral-B x19 = Rp285.000
+TOTAL: Rp285.000
+Dibayar: Rp285.000
+Kembalian: Rp0
+Laba: Rp57.000
+----------------------------------------
+=== TRANSAKSI ===
+ID Transaksi: SMK00320261118124316
+Tanggal : 2026-11-18 12:43
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+Rincian modal FIFO:
+- ID 603. batch 1: 20 x Rp1.600 = Rp32.000
+- [603] indomilk x20 = Rp40.000
+TOTAL: Rp40.000
+Dibayar: Rp40.000
+Kembalian: Rp0
+Modal FIFO: Rp32.000
+Laba: Rp8.000
+----------------------------------------
+
+=== TRANSAKSI ===
+ID Transaksi: SMK00420261118124821
+Tanggal : 2026-11-18 12:48
+Kasir   : Xavier
+Metode  : QRIS
+----------------------------------------
+Rincian modal FIFO:
+- ID 601. batch 1: 31 x Rp1.600 = Rp49.600
+- ID 601. batch 2: 1 x Rp1.000 = Rp1.000
+- [601] milo x32 = Rp64.000
+TOTAL: Rp64.000
+Dibayar: Rp64.000
+Kembalian: Rp0
+Modal FIFO: Rp50.600
+Laba: Rp13.400
+----------------------------------------
+

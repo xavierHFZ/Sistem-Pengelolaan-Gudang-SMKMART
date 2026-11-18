@@ -4,3 +4,4 @@
 4,Peralatan Mandi
 5,Elektronik
 6,Susu
+7,0

@@ -6,12 +6,16 @@ from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "data.txt")
+FIFO_FILE = os.path.join(BASE_DIR, "batch_stok.txt")
 RIWAYAT_GUDANG_FILE = os.path.join(BASE_DIR, "riwayat_gudang.txt")
 RIWAYAT_TRANSAKSI_FILE = os.path.join(BASE_DIR, "riwayat_transaksi.txt")
 KATEGORI_FILE = os.path.join(BASE_DIR, "kategori.txt")
 USER_FILE = os.path.join(BASE_DIR, "User.txt")
+DATA_HARGA = os.path.join(BASE_DIR, "Harga asli.txt")
 
 data_barang = {}
+batch_stok = []
+data_harga = {}
 keranjang = []
 kategori_by_id = {}
 kategori_by_name = {}
@@ -151,7 +155,29 @@ def hitung_transaksi_hari_ini():
 
 def muat_data():
     data_barang.clear()
+    data_harga.clear()
     muat_kategori()
+    if os.path.exists(DATA_HARGA):
+        with open(DATA_HARGA, "r", encoding="utf-8") as file:
+            for line in file:
+                if line.strip():
+                    parts = [p.strip() for p in line.strip().split(",")]
+                    if len(parts) != 3:
+                        print(f"[!] Baris riwayat harga dilewati karena formatnya salah: {line.strip()}")
+                        continue
+                    try:
+                        id_barang, urutan, harga_asli = map(int, parts)
+                    except ValueError:
+                        print(f"[!] Baris riwayat harga dilewati karena berisi nilai bukan angka: {line.strip()}")
+                        continue
+                    if id_barang <= 0 or urutan <= 0 or harga_asli < 0:
+                        print(f"[!] Baris riwayat harga dilewati karena nilainya tidak valid: {line.strip()}")
+                        continue
+                    data_harga.setdefault(id_barang, []).append({
+                        "urutan": urutan,
+                        "harga": harga_asli,
+                    })
+
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -198,6 +224,7 @@ def muat_data():
                         }
                     except ValueError:
                         print(f"[!] Baris data barang dilewati karena format angka tidak valid: {line.strip()}")
+    muat_batch_stok()
 
 def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -209,6 +236,133 @@ def simpan_data():
                 f"{harga_beli if harga_beli is not None else ''},"
                 f"{detail.get('barcode', '')}\n"
             )
+
+def simpan_batch_stok():
+    with open(FIFO_FILE, "w", encoding="utf-8") as file:
+        for batch in batch_stok:
+            modal = "" if batch["harga_modal"] is None else batch["harga_modal"]
+            file.write(
+                f"{batch['id_barang']},{batch['urutan']},{batch['tanggal']}"
+                f",{batch['sisa']},{modal}\n"
+            )
+
+def muat_batch_stok():
+    batch_stok.clear()
+    if os.path.exists(FIFO_FILE):
+        with open(FIFO_FILE, "r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+                parts = [part.strip() for part in line.strip().split(",")]
+                if len(parts) != 5:
+                    print(f"[!] Baris batch FIFO dilewati karena formatnya salah: {line.strip()}")
+                    continue
+                try:
+                    id_barang, urutan, tanggal, sisa = int(parts[0]), int(parts[1]), parts[2], int(parts[3])
+                    harga_modal = int(parts[4]) if parts[4] else None
+                except ValueError:
+                    print(f"[!] Baris batch FIFO dilewati karena berisi nilai tidak valid: {line.strip()}")
+                    continue
+                if id_barang <= 0 or urutan <= 0 or sisa <= 0 or (harga_modal is not None and harga_modal < 0):
+                    print(f"[!] Baris batch FIFO dilewati karena nilainya tidak valid: {line.strip()}")
+                    continue
+                batch_stok.append({
+                    "id_barang": id_barang,
+                    "urutan": urutan,
+                    "tanggal": tanggal,
+                    "sisa": sisa,
+                    "harga_modal": harga_modal,
+                })
+        for detail in data_barang.values():
+            stok_batch = jumlah_stok_batch(detail["id"])
+            if stok_batch != detail["stok"]:
+                print(
+                    f"[!] Stok FIFO ID {detail['id']} ({stok_batch}) berbeda dari data barang "
+                    f"({detail['stok']}). Periksa batch sebelum restok, ubah stok, atau checkout."
+                )
+        return
+
+    # Migrasi sekali: stok yang sudah ada menjadi batch pembuka FIFO.
+    for detail in data_barang.values():
+        stok = detail["stok"]
+        if stok <= 0:
+            continue
+        id_barang = detail["id"]
+        riwayat = data_harga.get(id_barang, [])
+        urutan = max((item["urutan"] for item in riwayat), default=0) + 1
+        batch_stok.append({
+            "id_barang": id_barang,
+            "urutan": urutan,
+            "tanggal": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "sisa": stok,
+            "harga_modal": detail.get("hargaBeli"),
+        })
+    simpan_batch_stok()
+
+def jumlah_stok_batch(id_barang):
+    return sum(batch["sisa"] for batch in batch_stok if batch["id_barang"] == id_barang)
+
+def rencana_fifo(id_barang, jumlah):
+    sisa_diminta = jumlah
+    rencana = []
+    modal = 0
+    modal_lengkap = True
+    batch_tertua = sorted(
+        (
+            (index, batch)
+            for index, batch in enumerate(batch_stok)
+            if batch["id_barang"] == id_barang
+        ),
+        key=lambda item: (item[1]["urutan"], item[1]["tanggal"]),
+    )
+    for index, batch in batch_tertua:
+        ambil = min(sisa_diminta, batch["sisa"])
+        if ambil <= 0:
+            continue
+        rencana.append((index, ambil))
+        if batch["harga_modal"] is None:
+            modal_lengkap = False
+        elif modal_lengkap:
+            modal += ambil * batch["harga_modal"]
+        sisa_diminta -= ambil
+        if sisa_diminta == 0:
+            break
+    if sisa_diminta:
+        return None, None
+    return rencana, modal if modal_lengkap else None
+
+def terapkan_rencana_fifo(rencana):
+    for index, jumlah in rencana:
+        batch_stok[index]["sisa"] -= jumlah
+    batch_stok[:] = [batch for batch in batch_stok if batch["sisa"] > 0]
+
+def terapkan_banyak_rencana_fifo(daftar_rencana):
+    for rencana in daftar_rencana:
+        for index, jumlah in rencana:
+            batch_stok[index]["sisa"] -= jumlah
+    batch_stok[:] = [batch for batch in batch_stok if batch["sisa"] > 0]
+
+def tambah_batch_stok(id_barang, jumlah, harga_modal):
+    riwayat = data_harga.get(id_barang, [])
+    urutan_riwayat = max((item["urutan"] for item in riwayat), default=0)
+    urutan_batch = max(
+        (batch["urutan"] for batch in batch_stok if batch["id_barang"] == id_barang),
+        default=0,
+    )
+    urutan = max(urutan_riwayat, urutan_batch) + 1
+    tanggal = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if jumlah > 0:
+        batch_stok.append({
+            "id_barang": id_barang,
+            "urutan": urutan,
+            "tanggal": tanggal,
+            "sisa": jumlah,
+            "harga_modal": harga_modal,
+        })
+    if harga_modal is not None:
+        with open(DATA_HARGA, "a", encoding="utf-8") as file:
+            file.write(f"{id_barang},{urutan},{harga_modal}\n")
+        data_harga.setdefault(id_barang, []).append({"urutan": urutan, "harga": harga_modal})
 
 def barcode_sudah_dipakai(barcode, kecuali_id=None):
     return bool(barcode) and any(
@@ -391,7 +545,7 @@ def summary_penjualan():
         return
 
 
-    
+
     with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
         isi = file.read()
 
@@ -403,6 +557,7 @@ def summary_penjualan():
             continue
         tanggal_match = re.search(r"Tanggal\s*:\s*(\d{4}-\d{2}-\d{2})", data)
         total_match = re.search(r"TOTAL:\s*Rp([\d.]+)", data)
+        laba_match = re.search(r"^Laba:\s*Rp(-?[\d.]+)\s*$", data, re.MULTILINE)
         if tanggal_match and total_match:
             try:
                 dt_obj = datetime.strptime(tanggal_match.group(1), "%Y-%m-%d")
@@ -429,6 +584,7 @@ def summary_penjualan():
             semua_transaksi.append({
                 "tanggal": dt_obj,
                 "total": total,
+                "laba": int(laba_match.group(1).replace(".", "")) if laba_match else None,
                 "items": items_terjual
             })
 
@@ -473,7 +629,7 @@ def summary_penjualan():
             end_date = end_date.replace(hour=23, minute=59, second=59)
 
 
-            
+
         rekap_harian = {}
         akumulasi_barang = {}
         grand_total = 0
@@ -485,15 +641,18 @@ def summary_penjualan():
                 tgl_key = dt_obj.strftime("%Y-%m-%d")
 
                 if tgl_key not in rekap_harian:
-                    rekap_harian[tgl_key] = {"total": 0, "count": 0}
+                    rekap_harian[tgl_key] = {"total": 0, "count": 0, "laba": 0, "transaksi_bermodal": 0}
                 rekap_harian[tgl_key]["total"] += trx["total"]
                 rekap_harian[tgl_key]["count"] += 1
+                if trx["laba"] is not None:
+                    rekap_harian[tgl_key]["laba"] += trx["laba"]
+                    rekap_harian[tgl_key]["transaksi_bermodal"] += 1
 
                 grand_total += trx["total"]
                 total_trx_count += 1
 
 
-                
+
                 for item in trx["items"]:
                     nama = item["nama"]
                     if nama not in akumulasi_barang:
@@ -504,8 +663,8 @@ def summary_penjualan():
         print("\n==========================================================================")
         print(f"       LAPORAN PENJUALAN: {start_date.strftime('%Y-%m-%d')} s/d {end_date.strftime('%Y-%m-%d')}")
         print("==========================================================================")
-        print(f"{'Tanggal':<15} {'Jml Transaksi':<15} {'Total Penjualan':>22}")
-        print("--------------------------------------------------------------------------")
+        print(f"{'Tanggal':<15} {'Jml Trx':<10} {'Penjualan':>18} {'Laba FIFO':>18}")
+        print("----------------------------------------------------------------------------")
 
         if not rekap_harian:
             print("                Tidak ada transaksi pada rentang tanggal ini.             ")
@@ -514,7 +673,16 @@ def summary_penjualan():
                 t_val = rekap_harian[tgl]["total"]
                 c_val = rekap_harian[tgl]["count"]
                 t_fmt = f"Rp{t_val:,.0f}".replace(",", ".")
-                print(f"{tgl:<15} {c_val:<15} {t_fmt:>22}")
+                laba_harian = rekap_harian[tgl]["laba"]
+                transaksi_bermodal = rekap_harian[tgl]["transaksi_bermodal"]
+                laba_fmt_harian = (
+                    f"Rp{laba_harian:,.0f}".replace(",", ".")
+                    if transaksi_bermodal
+                    else "Belum lengkap"
+                )
+                if 0 < transaksi_bermodal < c_val:
+                    laba_fmt_harian += "*"
+                print(f"{tgl:<15} {c_val:<10} {t_fmt:>18} {laba_fmt_harian:>18}")
 
             print("--------------------------------------------------------------------------")
             print("\n----------------- RINCIAN BARANG YANG TERJUAL ----------------------------")
@@ -522,15 +690,22 @@ def summary_penjualan():
             print("--------------------------------------------------------------------------")
 
 
-            
+
             sorted_items = sorted(akumulasi_barang.items(), key=lambda x: x[1]["qty"], reverse=True)
             for nama, detail in sorted_items:
                 sub_fmt = f"Rp{detail['subtotal']:,.0f}".replace(",", ".")
                 print(f"{detail['id']:<6} {nama:<30} {detail['qty']:<10} {sub_fmt:<15}")
 
-        print("--------------------------------------------------------------------------")
+        print("----------------------------------------------------------------------------")
         grand_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
         print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {grand_fmt:>24}")
+        laba_total = sum(trx["laba"] for trx in semua_transaksi
+                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
+        laba_count = sum(1 for trx in semua_transaksi
+                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
+        laba_total_fmt = f"Rp{laba_total:,.0f}".replace(",", ".")
+        print(f"TOTAL LABA FIFO ({laba_count}/{total_trx_count} transaksi bermodal lengkap): {laba_total_fmt}")
+        print("* Laba harian belum mencakup transaksi yang belum memiliki catatan modal FIFO.")
         print("==========================================================================")
         input("\nTekan Enter untuk melanjutkan...")
 
@@ -592,6 +767,18 @@ def tambah_barang():
     if batas_restock < 0:
         print("\n[!] Batas restock tidak boleh negatif!")
         return
+    harga_beli_input = input("Masukkan harga beli/modal per unit, angka tanpa titik (kosongkan jika stok 0): ").strip()
+    try:
+        harga_beli = int(harga_beli_input) if harga_beli_input else None
+    except ValueError:
+        print("\n[!] Harga beli harus berupa angka tanpa pemisah ribuan.")
+        return
+    if harga_beli is not None and harga_beli < 0:
+        print("\n[!] Harga beli tidak boleh negatif.")
+        return
+    if jumlah_barang > 0 and harga_beli is None:
+        print("\n[!] Harga beli wajib diisi jika stok awal lebih dari 0.")
+        return
     barcode = input("Masukkan barcode produk (kosongkan jika belum ada): ").strip()
     if barcode_sudah_dipakai(barcode):
         print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
@@ -606,12 +793,15 @@ def tambah_barang():
         "harga": harga_barang,
         "status": "aktif",
         "batas_restock": batas_restock,
-        "hargaBeli": None,
+        "hargaBeli": harga_beli,
         "barcode": barcode,
     }
+    tambah_batch_stok(id_barang, jumlah_barang, harga_beli)
+    simpan_batch_stok()
     simpan_data()
     with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-        r_file.write(f"[TAMBAH] Barang Baru: {nama_barang} | ID: {id_barang} | Kategori: {kategori_by_id[id_kat]} (ID: {id_kat}) | Jumlah: {jumlah_barang} | Harga: Rp{harga_barang:,.0f}\n".replace(",", "."))
+        modal_fmt = f"Rp{harga_beli:,.0f}".replace(",", ".") if harga_beli is not None else "belum ditetapkan"
+        r_file.write(f"[TAMBAH] Barang Baru: {nama_barang} | ID: {id_barang} | Kategori: {kategori_by_id[id_kat]} (ID: {id_kat}) | Jumlah: {jumlah_barang} | Harga jual: Rp{harga_barang:,.0f} | Harga beli/unit: {modal_fmt}\n".replace(",", "."))
     print(f"\n[V] Barang '{nama_barang}' berhasil ditambahkan dengan ID {id_barang}!")
 
 def restok_barang():
@@ -640,15 +830,26 @@ def restok_barang():
             nama_target = nama
             break
     if nama_target is not None:
+        detail = data_barang[nama_target]
+        if jumlah_stok_batch(detail["id"]) != detail["stok"]:
+            print("\n[!] Stok batch FIFO berbeda dari stok barang; restok dibatalkan.")
+            return
         try:
             jumlah_restock = int(input(f"Masukkan jumlah stok tambahan untuk '{nama_target}': "))
             if jumlah_restock <= 0:
                 print("\n[!] Jumlah restock harus lebih dari 0.")
                 return
-            data_barang[nama_target]['stok'] += jumlah_restock
+            harga_modal = int(input("Masukkan harga beli/modal per unit untuk restok ini (angka tanpa titik): ").strip())
+            if harga_modal < 0:
+                print("\n[!] Harga beli tidak boleh negatif.")
+                return
+            tambah_batch_stok(detail["id"], jumlah_restock, harga_modal)
+            detail["hargaBeli"] = harga_modal
+            detail["stok"] = jumlah_stok_batch(detail["id"])
+            simpan_batch_stok()
             simpan_data()
             with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-                r_file.write(f"[RESTOK] {nama_target} +{jumlah_restock} (Total Stok: {data_barang[nama_target]['stok']})\n")
+                r_file.write(f"[RESTOK FIFO] {nama_target} +{jumlah_restock} @ Rp{harga_modal:,} (Total Stok: {detail['stok']})\n".replace(",", "."))
             print(f"\n[V] Restock berhasil! Stok {nama_target} sekarang: {data_barang[nama_target]['stok']}")
         except ValueError:
             print("\n[!] Error: Masukkan angka yang valid!")
@@ -676,6 +877,9 @@ def ubah_barang():
             break
     if nama_lama is not None:
         detail_lama = data_barang[nama_lama]
+        if jumlah_stok_batch(detail_lama["id"]) != detail_lama["stok"]:
+            print("\n[!] Stok batch FIFO berbeda dari data barang. Periksa batch sebelum mengubah stok.")
+            return
         id_kat_lama = id_ke_kategori(detail_lama['id'])
         nama_baru = input(f"Masukkan nama barang baru (kosongkan jika tetap '{nama_lama}'): ").strip()
         if not nama_baru:
@@ -755,15 +959,48 @@ def ubah_barang():
                 return
         else:
             id_barang_baru = detail_lama['id']
+        perubahan_stok = jumlah_baru - detail_lama["stok"]
+        modal_batch_baru = None
+        rencana_pengurangan = []
+        if perubahan_stok > 0:
+            try:
+                modal_batch_baru = int(input("Modal per unit untuk tambahan stok ini (angka tanpa titik): ").strip())
+            except ValueError:
+                print("\n[!] Modal harus berupa angka.")
+                if nama_baru != nama_lama:
+                    data_barang[nama_lama] = detail_lama
+                return
+            if modal_batch_baru < 0:
+                print("\n[!] Modal tidak boleh negatif.")
+                if nama_baru != nama_lama:
+                    data_barang[nama_lama] = detail_lama
+                return
+        elif perubahan_stok < 0:
+            rencana_pengurangan, _ = rencana_fifo(detail_lama["id"], -perubahan_stok)
+            if rencana_pengurangan is None:
+                print("\n[!] Batch FIFO tidak cukup untuk menyesuaikan stok. Periksa data batch terlebih dahulu.")
+                if nama_baru != nama_lama:
+                    data_barang[nama_lama] = detail_lama
+                return
+
+        if rencana_pengurangan:
+            terapkan_rencana_fifo(rencana_pengurangan)
+        if id_barang_baru != detail_lama["id"]:
+            for batch in batch_stok:
+                if batch["id_barang"] == detail_lama["id"]:
+                    batch["id_barang"] = id_barang_baru
+        if perubahan_stok > 0:
+            tambah_batch_stok(id_barang_baru, perubahan_stok, modal_batch_baru)
         data_barang[nama_baru] = {
             "id": id_barang_baru,
-            "stok": jumlah_baru,
+            "stok": jumlah_stok_batch(id_barang_baru),
             "harga": harga_baru,
             "status": "aktif",
             "batas_restock": batas_restock,
-            "hargaBeli": detail_lama.get("hargaBeli"),
+            "hargaBeli": modal_batch_baru if perubahan_stok > 0 else detail_lama.get("hargaBeli"),
             "barcode": barcode_baru,
         }
+        simpan_batch_stok()
         simpan_data()
         print("\n[V] Data barang berhasil diperbarui.")
     else:
@@ -856,7 +1093,10 @@ def hapus_permanen_barang():
     if nama_target is not None:
         konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen '{nama_target}'? (y/n): ").strip().lower()
         if konfirmasi == 'y':
+            id_barang = data_barang[nama_target]["id"]
             del data_barang[nama_target]
+            batch_stok[:] = [batch for batch in batch_stok if batch["id_barang"] != id_barang]
+            simpan_batch_stok()
             simpan_data()
             with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
                 r_file.write(f"[HAPUS PERMANEN] {nama_target} (ID: {id_input}) dihapus permanen\n")
@@ -927,7 +1167,7 @@ def kelola_pengguna():
         print("0. Kembali")
         print("==========================================================================")
         pilih = input("Pilih menu (0-3): ").strip()
-        
+
         if pilih == "0":
             break
         elif pilih == "1":
@@ -960,11 +1200,11 @@ def kelola_pengguna():
             else:
                 print("\n[!] Role tidak valid.")
                 continue
-            
+
             if not new_user or not new_pass or "," in new_user or "," in new_pass:
                 print("\n[!] Username/password wajib diisi dan tidak boleh mengandung koma.")
                 continue
-                
+
             # Cek duplikat
             users_list = []
             ada = False
@@ -980,7 +1220,7 @@ def kelola_pengguna():
             if ada:
                 print(f"\n[!] Username '{new_user}' sudah terdaftar!")
                 continue
-                
+
             users_list.append([new_user, new_pass, new_role])
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, p, r in users_list:
@@ -1020,14 +1260,14 @@ def ganti_password_sendiri():
     pass_lama = input("Masukkan password lama: ").strip()
     pass_baru = input("Masukkan password baru: ").strip()
     konfirmasi = input("Konfirmasi password baru: ").strip()
-    
+
     if not pass_baru or "," in pass_baru:
         print("\n[!] Password baru wajib diisi dan tidak boleh mengandung koma!")
         return
     if pass_baru != konfirmasi:
         print("\n[!] Konfirmasi password baru tidak cocok!")
         return
-        
+
     users_list = []
     berhasil = False
     if os.path.exists(USER_FILE):
@@ -1045,7 +1285,7 @@ def ganti_password_sendiri():
                                 print("\n[!] Password lama salah!")
                                 return
                         users_list.append([u, p, r])
-                        
+
     if berhasil:
         with open(USER_FILE, "w", encoding="utf-8") as f:
             for u, p, r in users_list:
@@ -1093,6 +1333,8 @@ def checkout():
     if not keranjang:
         print("\n[!] Keranjang belanja kosong. Silakan tambah barang terlebih dahulu.")
         return
+    kebutuhan_fifo = {}
+    item_per_id = {}
     for item in keranjang:
         detail = data_barang.get(item['nama'])
         if (detail is None or detail.get('status', 'aktif') != 'aktif'
@@ -1102,6 +1344,43 @@ def checkout():
         if item['jumlah'] > detail['stok']:
             print(f"\n[!] Stok '{item['nama']}' hanya {detail['stok']}; checkout dibatalkan.")
             return
+        id_barang = detail["id"]
+        if jumlah_stok_batch(id_barang) != detail["stok"]:
+            print(f"\n[!] Stok batch FIFO '{item['nama']}' berbeda dari stok barang; checkout dibatalkan.")
+            return
+        kebutuhan_fifo[id_barang] = kebutuhan_fifo.get(id_barang, 0) + item["jumlah"]
+        item_per_id[id_barang] = item["nama"]
+
+    rencana_transaksi = []
+    total_modal = 0
+    modal_lengkap = True
+    for id_barang, jumlah in kebutuhan_fifo.items():
+        rencana, modal_barang = rencana_fifo(id_barang, jumlah)
+        if rencana is None:
+            nama = item_per_id[id_barang]
+            stok_batch = jumlah_stok_batch(id_barang)
+            print(f"\n[!] Batch FIFO '{nama}' hanya mencatat {stok_batch} unit; checkout dibatalkan agar stok tidak salah.")
+            return
+        rencana_transaksi.append((id_barang, rencana))
+        if modal_barang is None:
+            modal_lengkap = False
+        elif modal_lengkap:
+            total_modal += modal_barang
+    rincian_modal_fifo = []
+    for id_barang, rencana in rencana_transaksi:
+        for index, jumlah_batch in rencana:
+            batch = batch_stok[index]
+            if batch["harga_modal"] is None:
+                rincian_modal_fifo.append(
+                    f"- ID {id_barang}, batch {batch['urutan']}: {jumlah_batch} unit, modal belum diketahui\n"
+                )
+            else:
+                subtotal_modal = jumlah_batch * batch["harga_modal"]
+                rincian_modal_fifo.append(
+                    f"- ID {id_barang}, batch {batch['urutan']}: {jumlah_batch} x "
+                    f"Rp{batch['harga_modal']:,.0f} = Rp{subtotal_modal:,.0f}\n".replace(",", ".")
+                )
+    total_modal = total_modal if modal_lengkap else None
     waktu_transaksi = datetime.now()
     waktu_str = waktu_transaksi.strftime("%Y-%m-%d %H:%M")
     total_harga = 0
@@ -1118,8 +1397,21 @@ def checkout():
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {subtotal_fmt:<15}")
     total_fmt = f"Rp{total_harga:,.0f}".replace(",", ".")
+    laba_val = total_harga - total_modal if total_modal is not None else None
+    modal_fmt = (
+        f"Rp{total_modal:,.0f}".replace(",", ".")
+        if total_modal is not None
+        else "Belum dihitung (modal batch belum lengkap)"
+    )
+    laba_fmt = (
+        f"Rp{laba_val:,.0f}".replace(",", ".")
+        if laba_val is not None
+        else "Belum dihitung (modal batch belum lengkap)"
+    )
     print("==========================================================================")
     print(f"TOTAL HARGA: {total_fmt}")
+    print(f"MODAL FIFO : {modal_fmt}")
+    print(f"LABA       : {laba_fmt}")
     print("==========================================================================")
     print("\nPilih Metode Pembayaran:")
     print("1. Cash")
@@ -1151,50 +1443,38 @@ def checkout():
         kembalian = 0
         print(f"\n[V] Pembayaran via {metode} sebesar {total_fmt}.")
 
-    # Hitung laba secara aman untuk semua metode pembayaran (Cash, Debit, QRIS)
-    total_modal = 0
-    modal_lengkap = True
-    for item in keranjang:
-        detail_brg = data_barang.get(item['nama'], {})
-        hb = detail_brg.get('hargaBeli')
-        if hb is None:
-            modal_lengkap = False
-            break
-        total_modal += hb * item['jumlah']
-    laba_val = total_harga - total_modal if modal_lengkap else None
+    terapkan_banyak_rencana_fifo([rencana for _, rencana in rencana_transaksi])
+    for id_barang in kebutuhan_fifo:
+        detail = next((item for item in data_barang.values() if item["id"] == id_barang), None)
+        if detail is not None:
+            detail["stok"] = jumlah_stok_batch(id_barang)
 
-    for item in keranjang:
-        if item['nama'] in data_barang and data_barang[item['nama']].get('status', 'aktif') == 'aktif':
-            data_barang[item['nama']]['stok'] -= item['jumlah']
-            
+    simpan_batch_stok()
     simpan_data()
-    
+
     nomor_urut = hitung_transaksi_hari_ini() + 1
     kode_transaksi = f"SMK{nomor_urut:03d}"
-    
+
     log_transaksi = "=== TRANSAKSI ===\n"
     log_transaksi += f"ID Transaksi: {kode_transaksi}{waktu_transaksi.strftime('%Y%m%d%H%M%S')}\n"
     log_transaksi += f"Tanggal : {waktu_str}\n"
     log_transaksi += f"Kasir   : {current_user}\n"
     log_transaksi += f"Metode  : {metode}\n"
     log_transaksi += "----------------------------------------\n"
+    log_transaksi += "Rincian modal FIFO:\n"
+    log_transaksi += "".join(rincian_modal_fifo)
     for item in keranjang:
         subtotal = item['jumlah'] * item['harga']
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         log_transaksi += f"- [{item['id']}] {item['nama']} x{item['jumlah']} = {subtotal_fmt}\n"
-        
+
     total_fmt_log = f"Rp{total_harga:,.0f}".replace(",", ".")
     dibayar_fmt = f"Rp{uang_dibayarkan:,.0f}".replace(",", ".")
     kembali_fmt = f"Rp{kembalian:,.0f}".replace(",", ".")
-    laba_fmt = (
-        f"Rp{laba_val:,.0f}".replace(",", ".")
-        if laba_val is not None
-        else "Belum dihitung (harga beli belum lengkap)"
-    )
-    
     log_transaksi += f"TOTAL: {total_fmt_log}\n"
     log_transaksi += f"Dibayar: {dibayar_fmt}\n"
     log_transaksi += f"Kembalian: {kembali_fmt}\n"
+    log_transaksi += f"Modal FIFO: {modal_fmt}\n"
     log_transaksi += f"Laba: {laba_fmt}\n"
     log_transaksi += "----------------------------------------\n\n"
     with open(RIWAYAT_TRANSAKSI_FILE, "a", encoding="utf-8") as riwayat_file:
@@ -1209,6 +1489,7 @@ def checkout():
     print(f"Kasir           : {current_user}")
     print(f"Metode          : {metode}")
     print(f"TOTAL HARGA     : {total_fmt}")
+    print(f"MODAL FIFO      : {modal_fmt}")
     print(f"LABA            : {laba_fmt}")
     print(f"UANG DIBAYARKAN : Rp{uang_dibayarkan:,.0f}".replace(",", "."))
     print(f"KEMBALIAN       : Rp{kembalian:,.0f}".replace(",", "."))
@@ -1271,7 +1552,7 @@ def main():
         print("             APLIKASI SISTEM PENGELOLAAN BARANG SMKMART                  ")
         print("==========================================================================")
 
-        
+
         while admin_menu:
             print("\n==========================================================================")
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
@@ -1341,7 +1622,7 @@ def main():
             else:
                 print("\n[!] Pilihan tidak valid.")
 
-        
+
         while Gudang:
             print("\n==========================================================================")
             print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")

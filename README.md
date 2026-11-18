@@ -8,6 +8,7 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 - Menambah, melihat, mencari, mengubah, dan menghapus barang.
 - Mengelola kategori serta menambah stok barang.
 - Mendaftarkan dan mengelola barcode produk.
+- Menghitung modal penjualan memakai FIFO dari batch stok.
 - Melihat riwayat perubahan gudang dan ringkasan penjualan.
 - Memulihkan barang dari Recycle Bin atau menghapusnya secara permanen.
 - Melihat peringatan ketika stok barang di bawah batas restock yang ditetapkan.
@@ -50,13 +51,19 @@ Berkas berikut berada di direktori yang sama dengan program:
 | Berkas | Kegunaan |
 | --- | --- |
 | `User.txt` | Data login dan peran pengguna |
-| `data.txt` | Data barang: ID internal, nama, stok, harga jual, status, batas restock, harga beli opsional, dan barcode opsional |
+| `data.txt` | Data barang: ID internal, nama, stok, harga jual, status, batas restock, harga beli terakhir, dan barcode opsional |
+| `batch_stok.txt` | Sisa jumlah dan modal per unit dari setiap batch persediaan FIFO |
+| `Harga asli.txt` | Riwayat harga modal masuk dengan urutan per barang |
 | `kategori.txt` | Daftar kategori barang |
 | `riwayat_gudang.txt` | Catatan perubahan persediaan |
 | `riwayat_transaksi.txt` | Catatan transaksi penjualan |
 | `keranjang.txt` | Berkas yang disertakan; isi keranjang aktif disimpan sementara selama aplikasi berjalan |
 
-Data disimpan sebagai teks lokal, bukan di basis data. Aplikasi membaca format lama empat sampai tujuh kolom dan menyimpan format saat ini dalam delapan kolom, dengan harga beli opsional dan barcode di bagian akhir. Barcode diperlakukan sebagai teks agar angka nol di depan tetap terjaga. Untuk format lama tujuh kolom, aplikasi mengenali angka 8, 12, 13, atau 14 digit sebagai barcode; angka lain dianggap sebagai harga beli. Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
+Data disimpan sebagai teks lokal, bukan di basis data. Aplikasi membaca format `data.txt` lama empat sampai tujuh kolom dan menyimpan format saat ini dalam delapan kolom: `ID,Nama,Stok,HargaJual,Status,BatasRestock,HargaBeliTerakhir,Barcode`. Barcode diperlakukan sebagai teks agar angka nol di depannya tetap terjaga. Untuk format lama tujuh kolom, aplikasi mengenali angka 8, 12, 13, atau 14 digit sebagai barcode; angka lain dianggap sebagai harga beli.
+
+Setiap barang baru dan restok meminta harga beli/modal per unit. Batch stok disimpan dalam `batch_stok.txt` dengan format `ID,Urutan,TanggalMasuk,SisaJumlah,ModalPerUnit`. Saat checkout, barang diambil dari batch tertua terlebih dahulu; stok dan modal di tiap batch berkurang sesuai jumlah yang terjual. `Harga asli.txt` menyimpan riwayat modal dengan format `ID,Urutan,HargaModal`. Jika `batch_stok.txt` belum ada, stok lama dimigrasikan sekali menjadi batch pembuka memakai harga beli yang tersimpan di `data.txt`; stok tanpa harga modal akan tetap tercatat, tetapi laba transaksi yang memakai stok tersebut ditandai belum lengkap. Perubahan jumlah stok lewat menu ubah barang juga membuat atau mengurangi batch FIFO.
+
+Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
 
 ## Catatan keamanan dan batasan
 
