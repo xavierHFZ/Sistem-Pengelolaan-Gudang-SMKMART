@@ -123,31 +123,16 @@ Kembalian: Rp0
 ----------------------------------------
 
 === TRANSAKSI ===
-ID Transaksi: SMK00120261115185843
-Tanggal : 2026-11-15 18:58
+ID Transaksi: SMK00120261113153740
+Tanggal : 2026-11-13 15:37
 Kasir   : Xavier
-Metode  : Cash
+Metode  : Debit
 ----------------------------------------
-- [118] Doritos Nacho Cheese x2 = Rp30.000
-- [211] Ovomaltine Sachet x3 = Rp12.000
-TOTAL: Rp42.000
-Dibayar: Rp42.000
+- [101] Indomie Goreng x4 = Rp14.000
+TOTAL: Rp14.000
+Dibayar: Rp14.000
 Kembalian: Rp0
-Laba: Belum dihitung (harga beli belum lengkap)
-----------------------------------------
-
-=== TRANSAKSI ===
-ID Transaksi: SMK00220261115190320
-Tanggal : 2026-11-15 19:03
-Kasir   : Xavier
-Metode  : Cash
-----------------------------------------
-- [601] milo x3 = Rp6.000
-- [506] Lampu Hannochs LED 5W x2 = Rp24.000
-TOTAL: Rp30.000
-Dibayar: Rp30.000
-Kembalian: Rp0
-Laba: Rp6.000
+Laba: Rp14.000
 ----------------------------------------
 
 === TRANSAKSI ===

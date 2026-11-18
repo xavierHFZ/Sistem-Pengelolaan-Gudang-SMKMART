@@ -1,4 +1,4 @@
-Xavier,Kasir,Kasir
-Rifgi,Admin,Admin
-Cleosa,Admin,Kasir
-Fadil,5164,Admin Gudang
+Xavier,Kasir,Kasir,aktif
+Rifgi,989,Admin,aktif
+Cleosa,Admin,Kasir,aktif
+fadil,656,admin gudang,aktif
