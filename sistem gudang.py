@@ -342,9 +342,8 @@ def riwayat_transaksi():
         print("                         FILTER RIWAYAT TRANSAKSI                         ")
         print("==========================================================================")
         print("1. Tampilkan berdasarkan rentang tanggal")
-        print("2. Tampilkan berdasarkan bulan")
         print("0. Kembali")
-        pilihan = input("Pilih filter (0-2): ").strip()
+        pilihan = input("Pilih filter (0-1): ").strip()
 
         if pilihan == "0":
             return
@@ -360,15 +359,6 @@ def riwayat_transaksi():
                 continue
             hasil = [(tgl, blok) for tgl, blok in transaksi_terbaca if mulai <= tgl <= selesai]
             label = f"{mulai:%Y-%m-%d} s/d {selesai:%Y-%m-%d}"
-        elif pilihan == "2":
-            bulan = input("Bulan (YYYY-MM): ").strip()
-            try:
-                datetime.strptime(bulan, "%Y-%m")
-            except ValueError:
-                print("\n[!] Format bulan tidak valid. Gunakan YYYY-MM.")
-                continue
-            hasil = [(tgl, blok) for tgl, blok in transaksi_terbaca if tgl.strftime("%Y-%m") == bulan]
-            label = bulan
         else:
             print("\n[!] Pilihan tidak valid.")
             continue
@@ -912,7 +902,7 @@ def kelola_pengguna():
         print("==========================================================================")
         print("1. Lihat Daftar Pengguna")
         print("2. Tambah Pengguna Baru")
-        print("3. Ubah Status Akun (Aktif / Tidak Aktif - Soft Delete)")
+        print("3. Ubah Status Akun ")
         print("4. Restore Akun (Aktifkan Kembali)")
         print("5. Hapus Permanen Pengguna")
         print("0. Kembali")
