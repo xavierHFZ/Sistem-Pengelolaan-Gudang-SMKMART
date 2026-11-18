@@ -532,52 +532,39 @@ def summary_penjualan():
         print("\n[!] Belum ada riwayat transaksi.")
         return
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
     with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
         isi = file.read()
 
-    transaksi = isi.split("=== TRANSAKSI ===")
     semua_transaksi = []
-
-    for data in transaksi:
+    for data in isi.split("=== TRANSAKSI ==="):
         if not data.strip():
             continue
         tanggal_match = re.search(r"Tanggal\s*:\s*(\d{4}-\d{2}-\d{2})", data)
         total_match = re.search(r"TOTAL:\s*Rp([\d.]+)", data)
         laba_match = re.search(r"^Laba:\s*Rp(-?[\d.]+)\s*$", data, re.MULTILINE)
-        if tanggal_match and total_match:
-            try:
-                dt_obj = datetime.strptime(tanggal_match.group(1), "%Y-%m-%d")
-                total = int(total_match.group(1).replace(".", ""))
-            except ValueError:
-                continue
+        if not tanggal_match or not total_match:
+            continue
+        try:
+            tanggal = datetime.strptime(tanggal_match.group(1), "%Y-%m-%d")
+            total = int(total_match.group(1).replace(".", ""))
+            laba = int(laba_match.group(1).replace(".", "")) if laba_match else None
+        except ValueError:
+            continue
 
-            items_terjual = []
-            baris_data = data.split("\n")
-            for baris in baris_data:
-                item_match = re.search(r"-\s*\[(\d+)\]\s*(.*?)\s*x(\d+)\s*=\s*Rp([\d.]+)", baris)
-                if item_match:
-                    id_brg = int(item_match.group(1))
-                    nama_brg = item_match.group(2).strip()
-                    qty = int(item_match.group(3))
-                    subtotal = int(item_match.group(4).replace(".", ""))
-                    items_terjual.append({
-                        "id": id_brg,
-                        "nama": nama_brg,
-                        "qty": qty,
-                        "subtotal": subtotal
-                    })
-
-            semua_transaksi.append({
-                "tanggal": dt_obj,
-                "total": total,
-                "laba": int(laba_match.group(1).replace(".", "")) if laba_match else None,
-                "items": items_terjual
-            })
+        items_terjual = []
+        for baris in data.splitlines():
+            item_match = re.search(
+                r"-\s*\[(\d+)\]\s*(.*?)\s*x(\d+)\s*=\s*Rp([\d.]+)",
+                baris,
+            )
+            if item_match:
+                items_terjual.append({
+                    "id": int(item_match.group(1)),
+                    "nama": item_match.group(2).strip(),
+                    "qty": int(item_match.group(3)),
+                    "subtotal": int(item_match.group(4).replace(".", "")),
+                })
+        semua_transaksi.append({"tanggal": tanggal, "total": total, "laba": laba, "items": items_terjual})
 
     if not semua_transaksi:
         print("\n[!] Tidak ada data transaksi yang dapat dibaca.")
@@ -591,120 +578,85 @@ def summary_penjualan():
         print("0. Kembali")
         print("==========================================================================")
         pilihan = input("Masukkan pilihan (0-1): ").strip()
-
         if pilihan == "0":
             return
-
-        start_date = None
-        end_date = datetime.now()
-
-        if pilihan == "1":
-            print("\nFormat tanggal: YYYY-MM-DD (Contoh: 2026-01-01)")
-            tgl_mulai_str = input("Masukkan Tanggal Mulai: ").strip()
-            tgl_selesai_str = input("Masukkan Tanggal Selesai: ").strip()
-            try:
-                start_date = datetime.strptime(tgl_mulai_str, "%Y-%m-%d")
-                end_date = datetime.strptime(tgl_selesai_str, "%Y-%m-%d")
-            except ValueError:
-                print("\n[!] Format tanggal salah! Gunakan format YYYY-MM-DD.")
-                continue
-        else:
+        if pilihan != "1":
             print("\n[!] Pilihan tidak valid.")
             continue
 
-        if start_date > end_date:
+        print("\nFormat tanggal: YYYY-MM-DD (Contoh: 2026-01-01)")
+        try:
+            start_date = datetime.strptime(input("Masukkan Tanggal Mulai: ").strip(), "%Y-%m-%d")
+            end_date = datetime.strptime(input("Masukkan Tanggal Selesai: ").strip(), "%Y-%m-%d")
+        except ValueError:
+            print("\n[!] Format tanggal salah! Gunakan format YYYY-MM-DD.")
+            continue
+        if start_date.date() > end_date.date():
             print("\n[!] Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
             continue
 
-        if start_date.date() == end_date.date():
-            end_date = end_date.replace(hour=23, minute=59, second=59)
-
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
         rekap_harian = {}
         akumulasi_barang = {}
         grand_total = 0
         total_trx_count = 0
-
+        laba_total = 0
+        laba_count = 0
         for trx in semua_transaksi:
-            dt_obj = trx["tanggal"]
-            if start_date.date() <= dt_obj.date() <= end_date.date():
-                tgl_key = dt_obj.strftime("%Y-%m-%d")
-
-                if tgl_key not in rekap_harian:
-                    rekap_harian[tgl_key] = {"total": 0, "count": 0, "laba": 0, "transaksi_bermodal": 0}
-                rekap_harian[tgl_key]["total"] += trx["total"]
-                rekap_harian[tgl_key]["count"] += 1
-                if trx["laba"] is not None:
-                    rekap_harian[tgl_key]["laba"] += trx["laba"]
-                    rekap_harian[tgl_key]["transaksi_bermodal"] += 1
-
-                grand_total += trx["total"]
-                total_trx_count += 1
-
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
-                for item in trx["items"]:
-                    nama = item["nama"]
-                    if nama not in akumulasi_barang:
-                        akumulasi_barang[nama] = {"id": item["id"], "qty": 0, "subtotal": 0}
-                    akumulasi_barang[nama]["qty"] += item["qty"]
-                    akumulasi_barang[nama]["subtotal"] += item["subtotal"]
+            tanggal = trx["tanggal"]
+            if not start_date.date() <= tanggal.date() <= end_date.date():
+                continue
+            key = tanggal.strftime("%Y-%m-%d")
+            rekap = rekap_harian.setdefault(
+                key, {"total": 0, "count": 0, "laba": 0, "transaksi_bermodal": 0}
+            )
+            rekap["total"] += trx["total"]
+            rekap["count"] += 1
+            grand_total += trx["total"]
+            total_trx_count += 1
+            if trx["laba"] is not None:
+                rekap["laba"] += trx["laba"]
+                rekap["transaksi_bermodal"] += 1
+                laba_total += trx["laba"]
+                laba_count += 1
+            for item in trx["items"]:
+                nama = item["nama"]
+                rincian = akumulasi_barang.setdefault(
+                    nama, {"id": item["id"], "qty": 0, "subtotal": 0}
+                )
+                rincian["qty"] += item["qty"]
+                rincian["subtotal"] += item["subtotal"]
 
         print("\n==========================================================================")
-        print(f"       LAPORAN PENJUALAN: {start_date.strftime('%Y-%m-%d')} s/d {end_date.strftime('%Y-%m-%d')}")
+        print(f"       LAPORAN PENJUALAN: {start_date:%Y-%m-%d} s/d {end_date:%Y-%m-%d}")
         print("==========================================================================")
         print(f"{'Tanggal':<15} {'Jml Trx':<10} {'Penjualan':>18} {'Laba FIFO':>18}")
         print("----------------------------------------------------------------------------")
-
         if not rekap_harian:
             print("                Tidak ada transaksi pada rentang tanggal ini.             ")
         else:
-            for tgl in sorted(rekap_harian.keys()):
-                t_val = rekap_harian[tgl]["total"]
-                c_val = rekap_harian[tgl]["count"]
-                t_fmt = f"Rp{t_val:,.0f}".replace(",", ".")
-                laba_harian = rekap_harian[tgl]["laba"]
-                transaksi_bermodal = rekap_harian[tgl]["transaksi_bermodal"]
-                laba_fmt_harian = (
-                    f"Rp{laba_harian:,.0f}".replace(",", ".")
-                    if transaksi_bermodal
-                    else "Belum lengkap"
+            for tanggal in sorted(rekap_harian):
+                rekap = rekap_harian[tanggal]
+                penjualan = f"Rp{rekap['total']:,.0f}".replace(",", ".")
+                laba_harian = (
+                    f"Rp{rekap['laba']:,.0f}".replace(",", ".")
+                    if rekap["transaksi_bermodal"] else "Belum lengkap"
                 )
-                if 0 < transaksi_bermodal < c_val:
-                    laba_fmt_harian += "*"
-                print(f"{tgl:<15} {c_val:<10} {t_fmt:>18} {laba_fmt_harian:>18}")
-
+                if 0 < rekap["transaksi_bermodal"] < rekap["count"]:
+                    laba_harian += "*"
+                print(f"{tanggal:<15} {rekap['count']:<10} {penjualan:>18} {laba_harian:>18}")
             print("--------------------------------------------------------------------------")
             print("\n----------------- RINCIAN BARANG YANG TERJUAL ----------------------------")
             print(f"{'ID':<6} {'Nama Barang':<30} {'Terjual':<10} {'Total Pendapatan':<15}")
             print("--------------------------------------------------------------------------")
-
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
-            sorted_items = sorted(akumulasi_barang.items(), key=lambda x: x[1]["qty"], reverse=True)
-            for nama, detail in sorted_items:
-                sub_fmt = f"Rp{detail['subtotal']:,.0f}".replace(",", ".")
-                print(f"{detail['id']:<6} {nama:<30} {detail['qty']:<10} {sub_fmt:<15}")
+            for nama, rincian in sorted(akumulasi_barang.items(), key=lambda data: data[1]["qty"], reverse=True):
+                subtotal = f"Rp{rincian['subtotal']:,.0f}".replace(",", ".")
+                print(f"{rincian['id']:<6} {nama:<30} {rincian['qty']:<10} {subtotal:<15}")
 
         print("----------------------------------------------------------------------------")
-        grand_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
-        print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {grand_fmt:>24}")
-        laba_total = sum(trx["laba"] for trx in semua_transaksi
-                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
-        laba_count = sum(1 for trx in semua_transaksi
-                         if trx["laba"] is not None and start_date.date() <= trx["tanggal"].date() <= end_date.date())
-        laba_total_fmt = f"Rp{laba_total:,.0f}".replace(",", ".")
-        print(f"TOTAL LABA FIFO ({laba_count}/{total_trx_count} transaksi bermodal lengkap): {laba_total_fmt}")
+        total_fmt = f"Rp{grand_total:,.0f}".replace(",", ".")
+        laba_fmt = f"Rp{laba_total:,.0f}".replace(",", ".")
+        print(f"TOTAL KESELURUHAN ({total_trx_count} Transaksi): {total_fmt:>24}")
+        print(f"TOTAL LABA FIFO ({laba_count}/{total_trx_count} transaksi bermodal lengkap): {laba_fmt}")
         print("* Laba harian belum mencakup transaksi yang belum memiliki catatan modal FIFO.")
         print("==========================================================================")
         input("\nTekan Enter untuk melanjutkan...")
@@ -1167,13 +1119,8 @@ def kelola_pengguna():
         print("5. Hapus Permanen Pengguna")
         print("0. Kembali")
         print("==========================================================================")
-<<<<<<< HEAD
-        pilih = input("Pilih menu (0-3): ").strip()
-
-=======
         pilih = input("Pilih menu (0-5): ").strip()
-        
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
+
         if pilih == "0":
             break
         elif pilih == "1":
@@ -1216,12 +1163,9 @@ def kelola_pengguna():
             if not new_user or not new_pass or "," in new_user or "," in new_pass:
                 print("\n[!] Username/password wajib diisi dan tidak boleh mengandung koma.")
                 continue
-<<<<<<< HEAD
 
             # Cek duplikat
-=======
-                
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
+
             users_list = []
             ada = False
             if os.path.exists(USER_FILE):
@@ -1237,13 +1181,8 @@ def kelola_pengguna():
             if ada:
                 print(f"\n[!] Username '{new_user}' sudah terdaftar!")
                 continue
-<<<<<<< HEAD
 
-            users_list.append([new_user, new_pass, new_role])
-=======
-                
             users_list.append([new_user, new_pass, new_role, "aktif"])
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, p, r, st in users_list:
                     f.write(f"{u},{p},{r},{st}\n")
@@ -1253,7 +1192,7 @@ def kelola_pengguna():
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menonaktifkan akun yang sedang digunakan saat ini!")
                 continue
-            
+
             users_list = []
             ditemukan = False
             if os.path.exists(USER_FILE):
@@ -1268,11 +1207,11 @@ def kelola_pengguna():
                                     ditemukan = True
                                     st = "tidak_aktif"
                                 users_list.append([u, pw, r, st])
-                                
+
             if not ditemukan:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
                 continue
-                
+
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
@@ -1293,11 +1232,11 @@ def kelola_pengguna():
                                     ditemukan = True
                                     st = "aktif"
                                 users_list.append([u, pw, r, st])
-                                
+
             if not ditemukan:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
                 continue
-                
+
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
@@ -1307,12 +1246,12 @@ def kelola_pengguna():
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menghapus akun yang sedang digunakan saat ini!")
                 continue
-                
+
             konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen akun '{target_user}'? (y/n): ").strip().lower()
             if konfirmasi != 'y':
                 print("\n[!] Penghapusan permanen dibatalkan.")
                 continue
-                
+
             users_list = []
             ditemukan = False
             if os.path.exists(USER_FILE):
@@ -1326,11 +1265,11 @@ def kelola_pengguna():
                                     continue
                                 st = p[3] if len(p) > 3 else "aktif"
                                 users_list.append([p[0], p[1], p[2], st])
-                                
+
             if not ditemukan:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
                 continue
-                
+
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
@@ -1370,13 +1309,8 @@ def ganti_password_sendiri():
                             else:
                                 print("\n[!] Password lama salah!")
                                 return
-<<<<<<< HEAD
-                        users_list.append([u, p, r])
-
-=======
                         users_list.append([u, p, r, st])
-                        
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
+
     if berhasil:
         with open(USER_FILE, "w", encoding="utf-8") as f:
             for u, p, r, st in users_list:
@@ -1534,24 +1468,11 @@ def checkout():
         kembalian = 0
         print(f"\n[V] Pembayaran via {metode} sebesar {total_fmt}.")
 
-<<<<<<< HEAD
     terapkan_banyak_rencana_fifo([rencana for _, rencana in rencana_transaksi])
     for id_barang in kebutuhan_fifo:
         detail = next((item for item in data_barang.values() if item["id"] == id_barang), None)
         if detail is not None:
             detail["stok"] = jumlah_stok_batch(id_barang)
-=======
-    total_modal = 0
-    modal_lengkap = True
-    for item in keranjang:
-        detail_brg = data_barang.get(item['nama'], {})
-        hb = detail_brg.get('hargaBeli')
-        if hb is None:
-            modal_lengkap = False
-            break
-        total_modal += hb * item['jumlah']
-    laba_val = total_harga - total_modal if modal_lengkap else None
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
 
     simpan_batch_stok()
     simpan_data()
@@ -1665,10 +1586,7 @@ def main():
         print("             APLIKASI SISTEM PENGELOLAAN BARANG SMKMART                  ")
         print("==========================================================================")
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
         while admin_menu:
             print("\n==========================================================================")
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
@@ -1738,10 +1656,7 @@ def main():
             else:
                 print("\n[!] Pilihan tidak valid.")
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 74057941f59426e922c3ab15ae3496ee772e5f17
         while Gudang:
             print("\n==========================================================================")
             print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
