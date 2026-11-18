@@ -18,3 +18,4 @@
 [TAMBAH] Barang Baru: 0 | ID: 701 | Kategori: 0 (ID: 7) | Jumlah: 0 | Harga jual: Rp0 | Harga beli/unit: belum ditetapkan
 [RESTOK FIFO] indomilk +12 @ Rp4.000 (Total Stok: 32)
 [RESTOK FIFO] milo +12 @ Rp1.000 (Total Stok: 43)
+[HAPUS PERMANEN] 8 (ID: 122) dihapus permanen
