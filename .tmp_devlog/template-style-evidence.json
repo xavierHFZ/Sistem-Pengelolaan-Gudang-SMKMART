@@ -1,0 +1,168 @@
+{
+  "input": "C:\\Users\\xavie\\Downloads\\Format_Devlog_SMK_MART.docx",
+  "fonts_by_char_count": {},
+  "direct_run_formatting_runs": 112,
+  "direct_paragraph_formatting_paragraphs": 30,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 1,
+      "text": "FORMAT DEVLOG PROJECT SAS",
+      "style": "Normal"
+    },
+    {
+      "para_index": 43,
+      "text": "Identitas",
+      "style": "Normal"
+    },
+    {
+      "para_index": 44,
+      "text": "Diisi siswa",
+      "style": "Normal"
+    },
+    {
+      "para_index": 53,
+      "text": "Isian",
+      "style": "Normal"
+    },
+    {
+      "para_index": 54,
+      "text": "Jawaban",
+      "style": "Normal"
+    },
+    {
+      "para_index": 79,
+      "text": "Isian",
+      "style": "Normal"
+    },
+    {
+      "para_index": 80,
+      "text": "Jawaban",
+      "style": "Normal"
+    },
+    {
+      "para_index": 105,
+      "text": "Entri / Tanggal",
+      "style": "Normal"
+    },
+    {
+      "para_index": 106,
+      "text": "Bagian yang dikerjakan",
+      "style": "Normal"
+    },
+    {
+      "para_index": 107,
+      "text": "Bukti kerja",
+      "style": "Normal"
+    },
+    {
+      "para_index": 108,
+      "text": "Durasi (menit)",
+      "style": "Normal"
+    },
+    {
+      "para_index": 141,
+      "text": "Minggu ke-",
+      "style": "Normal"
+    },
+    {
+      "para_index": 142,
+      "text": "Target minggu ini",
+      "style": "Normal"
+    },
+    {
+      "para_index": 143,
+      "text": "Yang tercapai",
+      "style": "Normal"
+    },
+    {
+      "para_index": 144,
+      "text": "Kendala dan rencana",
+      "style": "Normal"
+    },
+    {
+      "para_index": 161,
+      "text": "Anggota",
+      "style": "Normal"
+    },
+    {
+      "para_index": 162,
+      "text": "Jumlah entri",
+      "style": "Normal"
+    },
+    {
+      "para_index": 163,
+      "text": "Total menit",
+      "style": "Normal"
+    },
+    {
+      "para_index": 164,
+      "text": "Bagian utama yang dikerjakan",
+      "style": "Normal"
+    },
+    {
+      "para_index": 181,
+      "text": "Nama teman yang dinilai",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "FORMAT DEVLOG PROJECT SAS",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "Aplikasi SMK MART (Python dan C#)",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "Kelas X Rekayasa Perangkat Lunak (RPL) | Semester Ganjil 2026/2027",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "text": "",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "FORMAT DEVLOG PROJECT SAS",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "Aplikasi SMK MART (Python dan C#)",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "run_text": "Kelas X Rekayasa Perangkat Lunak (RPL) | Semester Ganjil 2026/2027",
+        "style": "Normal"
+      },
+      {
+        "para_index": 9,
+        "run_text": "devlog sendiri",
+        "style": "List Paragraph"
+      },
+      {
+        "para_index": 12,
+        "run_text": "bukti kerja",
+        "style": "List Paragraph"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}
