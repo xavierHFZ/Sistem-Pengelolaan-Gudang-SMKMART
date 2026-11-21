@@ -19,3 +19,4 @@
 [RESTOK FIFO] indomilk +12 @ Rp4.000 (Total Stok: 32)
 [RESTOK FIFO] milo +12 @ Rp1.000 (Total Stok: 43)
 [HAPUS PERMANEN] 8 (ID: 122) dihapus permanen
+[TAMBAH] Barang Baru: mouse | ID: 521 | Kategori: Elektronik (ID: 5) | Jumlah: 20 | Harga jual: Rp30.000 | Harga beli/unit: Rp29.000

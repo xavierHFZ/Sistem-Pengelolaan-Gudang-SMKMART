@@ -53,7 +53,7 @@
 313,Spidol Snowman Permanent,22,8000,aktif,5,,
 314,Spidol Whiteboard,20,9000,aktif,5,,
 315,Tipe-X Kenko,25,7000,aktif,5,,
-316,Tipe-X Joyko,30,6500,aktif,5,,
+316,Tipe-X Joyko,30,6500,aktif,5,,8993988052661
 317,Lem Kertas Glue Stick,28,5000,aktif,5,,
 318,Lem Fox,35,4000,aktif,5,,
 319,Gunting Kertas,15,12000,aktif,5,,
@@ -102,3 +102,4 @@
 601,milo,34,2000,aktif,4,,
 602,Dancow coklat,26,2000,aktif,10,,
 603,indomilk,20,2000,aktif,3,,
+521,mouse,20,30000,aktif,3,29000,097855060266

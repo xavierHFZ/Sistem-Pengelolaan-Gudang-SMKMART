@@ -23,7 +23,7 @@ next_kategori_id = 1
 current_user = ""
 
 admin_menu = False
-Gudang = False  # untuk admin gudang
+Gudang = False  
 kasir = False
 login = True
 
