@@ -217,7 +217,7 @@ def muat_data():
                             "harga": int(harga),
                             "status": status,
                             "batas_restock": int(batas_restock),
-                            "barcode": barcode,
+                            "barcode": barcode or "0",
                             "hargaBeli": int(harga_beli) if harga_beli else None,
                         }
                     except ValueError:
@@ -228,11 +228,12 @@ def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         for nama, detail in data_barang.items():
             harga_beli = detail.get("hargaBeli")
+            barcode = str(detail.get("barcode") or "0").strip()
             f.write(
                 f"{detail['id']},{nama},{detail['stok']},{detail['harga']},"
                 f"{detail['status']},{detail.get('batas_restock', 5)},"
                 f"{harga_beli if harga_beli is not None else ''},"
-                f"{detail.get('barcode', '')}\n"
+                f"{barcode}\n"
             )
 
 def simpan_batch_stok():
@@ -362,8 +363,10 @@ def tambah_batch_stok(id_barang, jumlah, harga_modal):
         data_harga.setdefault(id_barang, []).append({"urutan": urutan, "harga": harga_modal})
 
 def barcode_sudah_dipakai(barcode, kecuali_id=None):
-    return bool(barcode) and any(
-        detail.get("barcode", "") == barcode and detail["id"] != kecuali_id
+    barcode = str(barcode or "").strip()
+    return barcode not in {"", "0"} and any(
+        str(detail.get("barcode", "0") or "0").strip() == barcode
+        and detail["id"] != kecuali_id
         for detail in data_barang.values()
     )
 
@@ -412,7 +415,7 @@ def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
     items = [
         (nama, detail)
         for nama, detail in items
-        if str(detail.get("barcode", "")).strip()
+        if str(detail.get("barcode", "0") or "0").strip() not in {"", "0"}
     ]
     if not items:
         print("\n[!] Tidak ada barang aktif dengan barcode yang terdaftar.")
@@ -791,9 +794,22 @@ def tambah_barang():
     if jumlah_barang > 0 and harga_beli is None:
         print("\n[!] Harga beli wajib diisi jika stok awal lebih dari 0.")
         return
-    barcode = input("Masukkan barcode produk (kosongkan jika belum ada): ").strip()
-    if barcode_sudah_dipakai(barcode):
-        print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
+    print("\nPengaturan barcode barang:")
+    print("1. Pakai barcode")
+    print("2. Tanpa barcode")
+    pilihan_barcode = input("Pilih (1-2): ").strip()
+    if pilihan_barcode == "1":
+        barcode = input("Masukkan barcode produk: ").strip()
+        if not barcode or barcode == "0":
+            print("\n[!] Barcode wajib diisi dan tidak boleh 0. Pilih opsi tanpa barcode jika tidak menggunakannya.")
+            return
+        if barcode_sudah_dipakai(barcode):
+            print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
+            return
+    elif pilihan_barcode == "2":
+        barcode = "0"
+    else:
+        print("\n[!] Pilihan barcode tidak valid. Pilih 1 atau 2.")
         return
     id_barang = generate_id(id_kat)
     if id_barang is None:
@@ -945,11 +961,24 @@ def ubah_barang():
         if batas_restock < 0:
             print("\n[!] Batas restock tidak boleh negatif!")
             return
-        barcode_lama = detail_lama.get("barcode", "")
-        barcode_input = input(
-            f"Masukkan barcode (kosongkan untuk tetap '{barcode_lama or 'kosong'}', ketik 0 untuk menghapus): "
-        ).strip()
-        barcode_baru = barcode_lama if not barcode_input else ("" if barcode_input == "0" else barcode_input)
+        barcode_lama = str(detail_lama.get("barcode") or "0").strip()
+        print("\nPengaturan barcode barang:")
+        print("1. Pakai barcode baru")
+        print("2. Tanpa barcode")
+        print("0. Pertahankan barcode saat ini")
+        pilihan_barcode = input("Pilih barcode (0-2): ").strip()
+        if pilihan_barcode == "1":
+            barcode_baru = input("Masukkan barcode baru: ").strip()
+            if not barcode_baru or barcode_baru == "0":
+                print("\n[!] Barcode wajib diisi dan tidak boleh 0.")
+                return
+        elif pilihan_barcode == "2":
+            barcode_baru = "0"
+        elif pilihan_barcode == "0":
+            barcode_baru = barcode_lama
+        else:
+            print("\n[!] Pilihan barcode tidak valid. Pilih 0, 1, atau 2.")
+            return
         if barcode_sudah_dipakai(barcode_baru, kecuali_id=detail_lama["id"]):
             print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
             return
@@ -1159,8 +1188,7 @@ def kelola_barcode():
         print("\n[!] Barang aktif dengan ID tersebut tidak ditemukan.")
         return
     nama, detail = target
-    barcode = input("Barcode baru (ketik 0 untuk menghapus barcode): ").strip()
-    barcode = "" if barcode == "0" else barcode
+    barcode = input("Barcode baru (ketik 0 untuk menghapus barcode): ").strip() or "0"
     if barcode_sudah_dipakai(barcode, kecuali_id=id_barang):
         print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
         return
