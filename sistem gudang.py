@@ -217,7 +217,7 @@ def muat_data():
                             "harga": int(harga),
                             "status": status,
                             "batas_restock": int(batas_restock),
-                            "barcode": barcode,
+                            "barcode": barcode or "0",
                             "hargaBeli": int(harga_beli) if harga_beli else None,
                         }
                     except ValueError:
@@ -228,11 +228,12 @@ def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         for nama, detail in data_barang.items():
             harga_beli = detail.get("hargaBeli")
+            barcode = str(detail.get("barcode") or "0").strip()
             f.write(
                 f"{detail['id']},{nama},{detail['stok']},{detail['harga']},"
                 f"{detail['status']},{detail.get('batas_restock', 5)},"
                 f"{harga_beli if harga_beli is not None else ''},"
-                f"{detail.get('barcode', '')}\n"
+                f"{barcode}\n"
             )
 
 def simpan_batch_stok():
@@ -362,8 +363,10 @@ def tambah_batch_stok(id_barang, jumlah, harga_modal):
         data_harga.setdefault(id_barang, []).append({"urutan": urutan, "harga": harga_modal})
 
 def barcode_sudah_dipakai(barcode, kecuali_id=None):
-    return bool(barcode) and any(
-        detail.get("barcode", "") == barcode and detail["id"] != kecuali_id
+    barcode = str(barcode or "").strip()
+    return barcode not in {"", "0"} and any(
+        str(detail.get("barcode", "0") or "0").strip() == barcode
+        and detail["id"] != kecuali_id
         for detail in data_barang.values()
     )
 
@@ -400,6 +403,40 @@ def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG"):
             harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
             batas_restock = detail.get('batas_restock', 5)
             print(f"{detail['id']:<6} {nama:<30} {detail['stok']:<8} {batas_restock:<14} {harga_fmt:<12}")
+            if detail['stok'] < batas_restock:
+                print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']} (batas restock: {batas_restock}). Segera restock!")
+    print("\n==========================================================================")
+
+def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
+    if items is None:
+        items = get_flat_items()
+    else:
+        items = [(nama, detail) for nama, detail in items if detail.get('status', 'aktif') == 'aktif']
+    items = [
+        (nama, detail)
+        for nama, detail in items
+        if str(detail.get("barcode", "0") or "0").strip() not in {"", "0"}
+    ]
+    if not items:
+        print("\n[!] Tidak ada barang aktif dengan barcode yang terdaftar.")
+        return
+    print("\n==========================================================================")
+    print(f"                         {judul}")
+    print("==========================================================================")
+    for kid in sorted(kategori_by_id.keys()):
+        kat_items = [(nama, detail) for nama, detail in items if id_ke_kategori(detail['id']) == kid]
+        if not kat_items:
+            continue
+        kat_items.sort(key=lambda x: str(x[1]['barcode']).strip())
+        print(f"\nKategori: {kategori_by_id[kid]} (Barcode: {kid}, Range: {kid*100+1}-{kid*100+99})")
+        print("--------------------------------------------------------------------------")
+        print(f"{'Barcode':<16} {'Nama Barang':<30} {'Stok':<8} {'Batas Restock':<14} {'Harga':<12}")
+        print("--------------------------------------------------------------------------")
+        for nama, detail in kat_items:
+            harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
+            batas_restock = detail.get('batas_restock', 5)
+            barcode = str(detail['barcode']).strip()
+            print(f"{barcode:<16} {nama:<30} {detail['stok']:<8} {batas_restock:<14} {harga_fmt:<12}")
             if detail['stok'] < batas_restock:
                 print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']} (batas restock: {batas_restock}). Segera restock!")
     print("\n==========================================================================")
@@ -757,9 +794,22 @@ def tambah_barang():
     if jumlah_barang > 0 and harga_beli is None:
         print("\n[!] Harga beli wajib diisi jika stok awal lebih dari 0.")
         return
-    barcode = input("Masukkan barcode produk (kosongkan jika belum ada): ").strip()
-    if barcode_sudah_dipakai(barcode):
-        print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
+    print("\nPengaturan barcode barang:")
+    print("1. Pakai barcode")
+    print("2. Tanpa barcode")
+    pilihan_barcode = input("Pilih (1-2): ").strip()
+    if pilihan_barcode == "1":
+        barcode = input("Masukkan barcode produk: ").strip()
+        if not barcode or barcode == "0":
+            print("\n[!] Barcode wajib diisi dan tidak boleh 0. Pilih opsi tanpa barcode jika tidak menggunakannya.")
+            return
+        if barcode_sudah_dipakai(barcode):
+            print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
+            return
+    elif pilihan_barcode == "2":
+        barcode = "0"
+    else:
+        print("\n[!] Pilihan barcode tidak valid. Pilih 1 atau 2.")
         return
     id_barang = generate_id(id_kat)
     if id_barang is None:
@@ -911,11 +961,24 @@ def ubah_barang():
         if batas_restock < 0:
             print("\n[!] Batas restock tidak boleh negatif!")
             return
-        barcode_lama = detail_lama.get("barcode", "")
-        barcode_input = input(
-            f"Masukkan barcode (kosongkan untuk tetap '{barcode_lama or 'kosong'}', ketik 0 untuk menghapus): "
-        ).strip()
-        barcode_baru = barcode_lama if not barcode_input else ("" if barcode_input == "0" else barcode_input)
+        barcode_lama = str(detail_lama.get("barcode") or "0").strip()
+        print("\nPengaturan barcode barang:")
+        print("1. Pakai barcode baru")
+        print("2. Tanpa barcode")
+        print("0. Pertahankan barcode saat ini")
+        pilihan_barcode = input("Pilih barcode (0-2): ").strip()
+        if pilihan_barcode == "1":
+            barcode_baru = input("Masukkan barcode baru: ").strip()
+            if not barcode_baru or barcode_baru == "0":
+                print("\n[!] Barcode wajib diisi dan tidak boleh 0.")
+                return
+        elif pilihan_barcode == "2":
+            barcode_baru = "0"
+        elif pilihan_barcode == "0":
+            barcode_baru = barcode_lama
+        else:
+            print("\n[!] Pilihan barcode tidak valid. Pilih 0, 1, atau 2.")
+            return
         if barcode_sudah_dipakai(barcode_baru, kecuali_id=detail_lama["id"]):
             print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
             return
@@ -1125,14 +1188,24 @@ def kelola_barcode():
         print("\n[!] Barang aktif dengan ID tersebut tidak ditemukan.")
         return
     nama, detail = target
-    barcode = input("Barcode baru (ketik 0 untuk menghapus barcode): ").strip()
-    barcode = "" if barcode == "0" else barcode
+    barcode = input("Barcode baru (ketik 0 untuk menghapus barcode): ").strip() or "0"
     if barcode_sudah_dipakai(barcode, kecuali_id=id_barang):
         print("\n[!] Barcode tersebut sudah digunakan oleh barang lain!")
         return
     detail["barcode"] = barcode
     simpan_data()
     print(f"\n[V] Barcode barang '{nama}' berhasil diperbarui.")
+
+def tampilkan_tabel_pengguna(users_list, judul="DAFTAR PENGGUNA SISTEM"):
+    print("\n==========================================================================")
+    print(f"                         {judul}")
+    print("==========================================================================")
+    print(f"{'No':<4} {'Username':<25} {'Role':<18} {'Status':<12}")
+    print("--------------------------------------------------------------------------")
+    for idx, item in enumerate(users_list, start=1):
+        u, r, st = item[0], item[2], item[3]
+        print(f"{idx:<4} {u:<25} {r:<18} {st:<12}")
+    print("==========================================================================")
 
 def kelola_pengguna():
     while True:
@@ -1141,34 +1214,33 @@ def kelola_pengguna():
         print("==========================================================================")
         print("1. Lihat Daftar Pengguna")
         print("2. Tambah Pengguna Baru")
-        print("3. Ubah Status Akun ")
+        print("3. Ubah Status Akun")
         print("4. Restore Akun (Aktifkan Kembali)")
         print("5. Hapus Permanen Pengguna")
         print("0. Kembali")
         print("==========================================================================")
-        pilih = input("Pilih menu (0-3): ").strip()
+        pilih = input("Pilih menu (0-5): ").strip()
 
         if pilih == "0":
             break
-        elif pilih == "1":
-            if not os.path.exists(USER_FILE):
-                print("\n[!] File User.txt belum ada.")
-                continue
-            print("\n==========================================================================")
-            print("                         DAFTAR PENGGUNA SISTEM                           ")
-            print("==========================================================================")
-            print(f"{'Username':<25} {'Role':<18} {'Status':<12}")
-            print("--------------------------------------------------------------------------")
+
+        # Muat semua data pengguna dari User.txt
+        users_list = []
+        if os.path.exists(USER_FILE):
             with open(USER_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
-                        parts = [p.strip() for p in line.strip().split(",")]
-                        if len(parts) >= 3:
-                            u = parts[0]
-                            r = parts[2]
-                            st = parts[3] if len(parts) > 3 else "aktif"
-                            print(f"{u:<25} {r:<18} {st:<12}")
-            print("==========================================================================")
+                        p = [x.strip() for x in line.strip().split(",")]
+                        if len(p) >= 3:
+                            st = p[3] if len(p) > 3 else "aktif"
+                            users_list.append([p[0], p[1], p[2], st])
+
+        if pilih == "1":
+            if not users_list:
+                print("\n[!] File User.txt belum ada atau masih kosong.")
+                continue
+            tampilkan_tabel_pengguna(users_list, "DAFTAR PENGGUNA SISTEM")
+
         elif pilih == "2":
             new_user = input("Masukkan username baru: ").strip()
             new_pass = input("Masukkan password baru: ").strip()
@@ -1191,114 +1263,105 @@ def kelola_pengguna():
                 print("\n[!] Username/password wajib diisi dan tidak boleh mengandung koma.")
                 continue
 
-            users_list = []
-            ada = False
-            if os.path.exists(USER_FILE):
-                with open(USER_FILE, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.strip():
-                            p = [x.strip() for x in line.strip().split(",")]
-                            if len(p) >= 3:
-                                if p[0].casefold() == new_user.casefold():
-                                    ada = True
-                                st = p[3] if len(p) > 3 else "aktif"
-                                users_list.append([p[0], p[1], p[2], st])
-            if ada:
+            if any(u[0].casefold() == new_user.casefold() for u in users_list):
                 print(f"\n[!] Username '{new_user}' sudah terdaftar!")
                 continue
 
-            users_list.append([new_user, new_pass, new_role])
+            users_list.append([new_user, new_pass, new_role, "aktif"])
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, p, r, st in users_list:
                     f.write(f"{u},{p},{r},{st}\n")
             print(f"\n[V] Pengguna '{new_user}' berhasil ditambahkan!")
+
         elif pilih == "3":
-            target_user = input("Masukkan username yang ingin dinonaktifkan (Soft Delete): ").strip()
+            if not users_list:
+                print("\n[!] Data pengguna kosong.")
+                continue
+            tampilkan_tabel_pengguna(users_list, "PILIH AKUN UNTUK UBAH STATUS")
+            target_user = input("Masukkan username yang ingin diubah statusnya (0 untuk batal): ").strip()
+            if target_user == "0":
+                continue
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menonaktifkan akun yang sedang digunakan saat ini!")
                 continue
-            
-            users_list = []
+
             ditemukan = False
-            if os.path.exists(USER_FILE):
-                with open(USER_FILE, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.strip():
-                            p = [x.strip() for x in line.strip().split(",")]
-                            if len(p) >= 3:
-                                u, pw, r = p[0], p[1], p[2]
-                                st = p[3] if len(p) > 3 else "aktif"
-                                if u.casefold() == target_user.casefold():
-                                    ditemukan = True
-                                    st = "tidak_aktif"
-                                users_list.append([u, pw, r, st])
-                                
+            status_baru_label = ""
+            for item in users_list:
+                if item[0].casefold() == target_user.casefold():
+                    ditemukan = True
+                    # Toggle status antara aktif dan tidak_aktif
+                    if item[3] == "aktif":
+                        item[3] = "tidak_aktif"
+                        status_baru_label = "TIDAK AKTIF"
+                    else:
+                        item[3] = "aktif"
+                        status_baru_label = "AKTIF"
+                    break
+
             if not ditemukan:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
                 continue
-                
+
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
-            print(f"\n[V] Pengguna '{target_user}' berhasil diubah statusnya menjadi TIDAK AKTIF.")
+            print(f"\n[V] Status pengguna '{target_user}' berhasil diubah menjadi {status_baru_label}.")
+
         elif pilih == "4":
-            target_user = input("Masukkan username yang ingin di-restore (diaktifkan kembali): ").strip()
-            users_list = []
-            ditemukan = False
-            if os.path.exists(USER_FILE):
-                with open(USER_FILE, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.strip():
-                            p = [x.strip() for x in line.strip().split(",")]
-                            if len(p) >= 3:
-                                u, pw, r = p[0], p[1], p[2]
-                                st = p[3] if len(p) > 3 else "aktif"
-                                if u.casefold() == target_user.casefold():
-                                    ditemukan = True
-                                    st = "aktif"
-                                users_list.append([u, pw, r, st])
-                                
-            if not ditemukan:
-                print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
+            akun_nonaktif = [u for u in users_list if u[3] == "tidak_aktif"]
+            if not akun_nonaktif:
+                print("\n[!] Tidak ada akun berstatus TIDAK AKTIF untuk di-restore.")
                 continue
-                
+            tampilkan_tabel_pengguna(akun_nonaktif, "DAFTAR AKUN TIDAK AKTIF (SIAP RESTORE)")
+            target_user = input("Masukkan username yang ingin di-restore (0 untuk batal): ").strip()
+            if target_user == "0":
+                continue
+
+            ditemukan = False
+            for item in users_list:
+                if item[0].casefold() == target_user.casefold() and item[3] == "tidak_aktif":
+                    ditemukan = True
+                    item[3] = "aktif"
+                    break
+
+            if not ditemukan:
+                print(f"\n[!] Akun nonaktif dengan username '{target_user}' tidak ditemukan.")
+                continue
+
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
             print(f"\n[V] Pengguna '{target_user}' berhasil di-restore (AKTIF).")
+
         elif pilih == "5":
-            target_user = input("Masukkan username yang ingin dihapus PERMANEN: ").strip()
+            if not users_list:
+                print("\n[!] Data pengguna kosong.")
+                continue
+            tampilkan_tabel_pengguna(users_list, "DAFTAR AKUN (HAPUS PERMANEN)")
+            target_user = input("Masukkan username yang ingin dihapus PERMANEN (0 untuk batal): ").strip()
+            if target_user == "0":
+                continue
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menghapus akun yang sedang digunakan saat ini!")
                 continue
-                
-            konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen akun '{target_user}'? (y/n): ").strip().lower()
+
+            target_obj = next((u for u in users_list if u[0].casefold() == target_user.casefold()), None)
+            if target_obj is None:
+                print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
+                continue
+
+            konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen akun '{target_obj[0]}'? (y/n): ").strip().lower()
             if konfirmasi != 'y':
                 print("\n[!] Penghapusan permanen dibatalkan.")
                 continue
-                
-            users_list = []
-            ditemukan = False
-            if os.path.exists(USER_FILE):
-                with open(USER_FILE, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.strip():
-                            p = [x.strip() for x in line.strip().split(",")]
-                            if len(p) >= 3:
-                                if p[0].casefold() == target_user.casefold():
-                                    ditemukan = True
-                                    continue
-                                st = p[3] if len(p) > 3 else "aktif"
-                                users_list.append([p[0], p[1], p[2], st])
-                                
-            if not ditemukan:
-                print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
-                continue
-                
+
+            users_list = [u for u in users_list if u[0].casefold() != target_user.casefold()]
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
-            print(f"\n[V] Pengguna '{target_user}' berhasil dihapus secara permanen.")
+            print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
+
         else:
             print("\n[!] Pilihan tidak valid.")
 
@@ -1334,7 +1397,7 @@ def ganti_password_sendiri():
                             else:
                                 print("\n[!] Password lama salah!")
                                 return
-                        users_list.append([u, p, r])
+                        users_list.append([u, p, r, st])
 
     if berhasil:
         with open(USER_FILE, "w", encoding="utf-8") as f:
@@ -1346,6 +1409,7 @@ def scanner_barang():
     print("\n==========================================================================")
     print("                         BARCODE SCANNER MODE                             ")
     print("==========================================================================")
+    tampilkan_tabel_grouped_barcode(judul="DAFTAR BARANG DENGAN BARCODE")
     print("Scan barcode produk untuk menambah satu unit ke keranjang. Masukkan 0 untuk keluar.")
     while True:
         barcode_input = input("\nSCAN BARCODE: ").strip()
@@ -1599,7 +1663,7 @@ def main():
 
         role_clean = role_login.strip().lower()
         is_admin_utama = (role_clean == "admin")
-        
+
         if is_admin_utama:
             admin_menu = True
         elif role_clean == "admin gudang":
@@ -1618,7 +1682,7 @@ def main():
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
             print("==========================================================================")
             print("1. Kelola Pengguna")
-            print("2. Kelola Data Barang (Tambah, Ubah, Hapus)")
+            print("2. Kelola Data Barang")
             print("3. Lihat dan Cari Barang")
             print("4. Daftar Stok Barang")
             print("5. Laporan Penjualan")
@@ -1639,14 +1703,17 @@ def main():
                 print("1. Tambah Barang")
                 print("2. Ubah Barang")
                 print("3. Hapus Barang")
+                print("4. Recycle Bin")
                 print("0. Batal")
-                sub = input("Pilih aksi (0-3): ").strip()
+                sub = input("Pilih aksi (0-4): ").strip()
                 if sub == "1":
                     tambah_barang()
                 elif sub == "2":
                     ubah_barang()
                 elif sub == "3":
                     hapus_barang()
+                elif sub == "4":
+                    menu_recycle_bin()
             elif pilihan_adm == "3":
                 cari_barang_linear(data_barang)
             elif pilihan_adm == "4":
@@ -1672,7 +1739,7 @@ def main():
                 ganti_password_sendiri()
             elif pilihan_adm == "9":
                 kasir = True
-            
+
                 while kasir:
                     print("\n==========================================================================")
                     print("                          SISTEM KASIR SMKMART                            ")
@@ -1691,9 +1758,18 @@ def main():
                     pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
 
                     if pilihan_kasir == "1":
-                        if not data_barang:
-                            print("\n[!] Stok barang di data masih kosong.")
+                        print("\nPilih cara menambahkan barang:")
+                        print("1. Masukkan ID barang")
+                        print("2. Scan barcode")
+                        jenis_pemasukkan = input("Masukkan pilihan (1-2): ").strip()
+
+                        if jenis_pemasukkan == "2":
+                            scanner_barang()
                             continue
+                        if jenis_pemasukkan != "1":
+                            print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
+                            continue
+
                         active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
                         if not active_items:
                             print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
@@ -1943,9 +2019,18 @@ def main():
             pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
 
             if pilihan_kasir == "1":
-                if not data_barang:
-                    print("\n[!] Stok barang di data masih kosong.")
+                print("\nPilih cara menambahkan barang:")
+                print("1. Masukkan ID barang")
+                print("2. Scan barcode")
+                jenis_pemasukkan = input("Masukkan pilihan (1-2): ").strip()
+
+                if jenis_pemasukkan == "2":
+                    scanner_barang()
                     continue
+                if jenis_pemasukkan != "1":
+                    print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
+                    continue
+
                 active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
                 if not active_items:
                     print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
