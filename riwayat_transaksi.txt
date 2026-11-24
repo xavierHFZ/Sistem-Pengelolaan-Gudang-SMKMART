@@ -206,3 +206,20 @@ Modal FIFO: Rp50.600
 Laba: Rp13.400
 ----------------------------------------
 
+=== TRANSAKSI ===
+ID Transaksi: SMK00120261123084731
+Tanggal : 2026-11-23 08:47
+Kasir   : Rifgi
+Metode  : QRIS
+----------------------------------------
+Rincian modal FIFO:
+- ID 521. batch 1: 20 x Rp29.000 = Rp580.000
+- ID 521. batch 2: 3 x Rp10.000 = Rp30.000
+- [521] mouse x23 = Rp690.000
+TOTAL: Rp690.000
+Dibayar: Rp690.000
+Kembalian: Rp0
+Modal FIFO: Rp610.000
+Laba: Rp80.000
+----------------------------------------
+

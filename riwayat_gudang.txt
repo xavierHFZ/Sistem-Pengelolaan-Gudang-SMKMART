@@ -21,3 +21,5 @@
 [HAPUS PERMANEN] 8 (ID: 122) dihapus permanen
 [TAMBAH] Barang Baru: mouse | ID: 521 | Kategori: Elektronik (ID: 5) | Jumlah: 20 | Harga jual: Rp30.000 | Harga beli/unit: Rp29.000
 [HAPUS] indomilk (ID: 603) dipindahkan ke Recycle Bin
+[RESTOK FIFO] mouse +3 @ Rp10.000 (Total Stok: 23)
+[TAMBAH] Barang Baru: milo | ID: 604 | Kategori: Susu (ID: 6) | Jumlah: 12 | Harga jual: Rp3.000 | Harga beli/unit: Rp1.000

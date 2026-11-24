@@ -380,6 +380,7 @@ def get_flat_items():
     return items
 
 def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG"):
+    muat_data()
     if items is None:
         items = get_flat_items()
     else:
@@ -408,6 +409,7 @@ def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG"):
     print("\n==========================================================================")
 
 def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
+    muat_data()
     if items is None:
         items = get_flat_items()
     else:
@@ -442,6 +444,7 @@ def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
     print("\n==========================================================================")
 
 def cari_barang_linear(data_barang):
+    muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong.")
         return
@@ -726,6 +729,7 @@ def summary_penjualan():
         input("\nTekan Enter untuk melanjutkan...")
 
 def tambah_barang():
+    muat_data()
     nama_barang = input("Masukkan nama barang: ").strip()
     if not nama_barang or "," in nama_barang:
         print("\n[!] Nama barang wajib diisi dan tidak boleh mengandung koma!")
@@ -833,6 +837,7 @@ def tambah_barang():
     print(f"\n[V] Barang '{nama_barang}' berhasil ditambahkan dengan ID {id_barang}!")
 
 def restok_barang():
+    muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong. Silakan tambah barang baru.")
         tambah_barang()
@@ -885,6 +890,7 @@ def restok_barang():
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
 def ubah_barang():
+    muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong.")
         return
@@ -1048,6 +1054,7 @@ def ubah_barang():
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
 def hapus_barang():
+    muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong.")
         return
@@ -1076,6 +1083,7 @@ def hapus_barang():
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
 def tampilkan_barang_terhapus():
+    muat_data()
     deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
@@ -1091,6 +1099,7 @@ def tampilkan_barang_terhapus():
     print("==========================================================================")
 
 def restore_barang():
+    muat_data()
     deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
@@ -1116,6 +1125,7 @@ def restore_barang():
         print("\n[!] ID barang tidak ditemukan di Recycle Bin.")
 
 def hapus_permanen_barang():
+    muat_data()
     deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
@@ -1170,6 +1180,7 @@ def menu_recycle_bin():
             print("\n[!] Pilihan tidak valid.")
 
 def kelola_barcode():
+    muat_data()
     barang_aktif = [(nama, detail) for nama, detail in data_barang.items()
                     if detail.get("status", "aktif") == "aktif"]
     if not barang_aktif:
@@ -1214,7 +1225,7 @@ def kelola_pengguna():
         print("==========================================================================")
         print("1. Lihat Daftar Pengguna")
         print("2. Tambah Pengguna Baru")
-        print("3. Ubah Status Akun")
+        print("3. Ubah Status Akun ")
         print("4. Restore Akun (Aktifkan Kembali)")
         print("5. Hapus Permanen Pengguna")
         print("0. Kembali")
@@ -1224,7 +1235,6 @@ def kelola_pengguna():
         if pilih == "0":
             break
 
-        # Muat semua data pengguna dari User.txt
         users_list = []
         if os.path.exists(USER_FILE):
             with open(USER_FILE, "r", encoding="utf-8") as f:
@@ -1240,7 +1250,6 @@ def kelola_pengguna():
                 print("\n[!] File User.txt belum ada atau masih kosong.")
                 continue
             tampilkan_tabel_pengguna(users_list, "DAFTAR PENGGUNA SISTEM")
-
         elif pilih == "2":
             new_user = input("Masukkan username baru: ").strip()
             new_pass = input("Masukkan password baru: ").strip()
@@ -1272,13 +1281,12 @@ def kelola_pengguna():
                 for u, p, r, st in users_list:
                     f.write(f"{u},{p},{r},{st}\n")
             print(f"\n[V] Pengguna '{new_user}' berhasil ditambahkan!")
-
         elif pilih == "3":
             if not users_list:
                 print("\n[!] Data pengguna kosong.")
                 continue
             tampilkan_tabel_pengguna(users_list, "PILIH AKUN UNTUK UBAH STATUS")
-            target_user = input("Masukkan username yang ingin diubah statusnya (0 untuk batal): ").strip()
+            target_user = input("Masukkan username yang ingin dinonaktifkan (Soft Delete) (0 untuk batal): ").strip()
             if target_user == "0":
                 continue
             if target_user.casefold() == current_user.casefold():
@@ -1286,17 +1294,10 @@ def kelola_pengguna():
                 continue
 
             ditemukan = False
-            status_baru_label = ""
             for item in users_list:
                 if item[0].casefold() == target_user.casefold():
                     ditemukan = True
-                    # Toggle status antara aktif dan tidak_aktif
-                    if item[3] == "aktif":
-                        item[3] = "tidak_aktif"
-                        status_baru_label = "TIDAK AKTIF"
-                    else:
-                        item[3] = "aktif"
-                        status_baru_label = "AKTIF"
+                    item[3] = "tidak_aktif"
                     break
 
             if not ditemukan:
@@ -1306,15 +1307,14 @@ def kelola_pengguna():
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
-            print(f"\n[V] Status pengguna '{target_user}' berhasil diubah menjadi {status_baru_label}.")
-
+            print(f"\n[V] Pengguna '{target_user}' berhasil diubah statusnya menjadi TIDAK AKTIF.")
         elif pilih == "4":
             akun_nonaktif = [u for u in users_list if u[3] == "tidak_aktif"]
             if not akun_nonaktif:
                 print("\n[!] Tidak ada akun berstatus TIDAK AKTIF untuk di-restore.")
                 continue
             tampilkan_tabel_pengguna(akun_nonaktif, "DAFTAR AKUN TIDAK AKTIF (SIAP RESTORE)")
-            target_user = input("Masukkan username yang ingin di-restore (0 untuk batal): ").strip()
+            target_user = input("Masukkan username yang ingin di-restore (diaktifkan kembali) (0 untuk batal): ").strip()
             if target_user == "0":
                 continue
 
@@ -1333,7 +1333,6 @@ def kelola_pengguna():
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
             print(f"\n[V] Pengguna '{target_user}' berhasil di-restore (AKTIF).")
-
         elif pilih == "5":
             if not users_list:
                 print("\n[!] Data pengguna kosong.")
@@ -1359,9 +1358,8 @@ def kelola_pengguna():
             users_list = [u for u in users_list if u[0].casefold() != target_user.casefold()]
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
-                    f.write(f"{u},{pw},{r},{st}\n")
-            print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
-
+                    f.write(f"{u},{pw},{r},{st}\n")            
+                    print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
         else:
             print("\n[!] Pilihan tidak valid.")
 
@@ -1406,6 +1404,7 @@ def ganti_password_sendiri():
         print("\n[V] Password berhasil diperbarui!")
 
 def scanner_barang():
+    muat_data()
     print("\n==========================================================================")
     print("                         BARCODE SCANNER MODE                             ")
     print("==========================================================================")
@@ -1418,6 +1417,7 @@ def scanner_barang():
             return
         if not barcode_input:
             continue
+        muat_data()
         target = next((
             (nama, detail) for nama, detail in data_barang.items()
             if detail.get("status", "aktif") == "aktif"
@@ -1444,6 +1444,7 @@ def scanner_barang():
         print(f"[V] {nama} ditambahkan. Jumlah di keranjang: {jumlah_di_keranjang + 1}.")
 
 def checkout():
+    muat_data()
     if not keranjang:
         print("\n[!] Keranjang belanja kosong. Silakan tambah barang terlebih dahulu.")
         return
@@ -1703,7 +1704,7 @@ def main():
                 print("1. Tambah Barang")
                 print("2. Ubah Barang")
                 print("3. Hapus Barang")
-                print("4. Recycle Bin")
+                print("4. Recycle Bin (Restore/Hapus Permanen)")
                 print("0. Batal")
                 sub = input("Pilih aksi (0-4): ").strip()
                 if sub == "1":
@@ -1717,6 +1718,7 @@ def main():
             elif pilihan_adm == "3":
                 cari_barang_linear(data_barang)
             elif pilihan_adm == "4":
+                muat_data()
                 if not data_barang:
                     print("\n[!] Data barang masih kosong.")
                     continue
@@ -1770,6 +1772,7 @@ def main():
                             print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
                             continue
 
+                        muat_data()
                         active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
                         if not active_items:
                             print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
@@ -1906,6 +1909,7 @@ def main():
                     if pilihan == "1":
                         tambah_barang()
                     elif pilihan == "2":
+                        muat_data()
                         if not data_barang:
                             print("\n[!] Data barang masih kosong.")
                             continue
@@ -1967,6 +1971,7 @@ def main():
             if pilihan == "1":
                 tambah_barang()
             elif pilihan == "2":
+                muat_data()
                 if not data_barang:
                     print("\n[!] Data barang masih kosong.")
                     continue
@@ -2031,6 +2036,7 @@ def main():
                     print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
                     continue
 
+                muat_data()
                 active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
                 if not active_items:
                     print("\n[!] Tidak ada barang aktif yang bisa dibeli.")

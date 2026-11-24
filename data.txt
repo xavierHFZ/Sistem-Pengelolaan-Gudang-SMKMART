@@ -97,9 +97,9 @@
 517,Charger HP 10W,25,35000,aktif,5,,0
 518,Charger HP 18W,20,55000,aktif,5,,0
 519,Kipas Mini USB,15,30000,terhapus,5,,0
-520,Lampu Emergency,12,65000,aktif,5,,0
+520,Lampu Emergency,5,60000,aktif,5,,0
 121,indomie rendang,47,4000,aktif,3,,0
-601,milo,34,2000,aktif,4,,0
-602,Dancow coklat,26,2000,aktif,10,,0
+602,Dancow coklat,0,0,aktif,0,,0
 603,indomilk,20,2000,terhapus,3,,0
-521,mouse,20,30000,aktif,3,29000,097855060266
+521,mouse,0,30000,aktif,3,10000,097855060266
+604,milo,12,3000,aktif,5,1000,0
