@@ -31,6 +31,11 @@ Kesempatan = 0
 
 
 def bersihkan_layar():
+    # Jangan jalankan cls/clear jika output bukan terminal interaktif; pada
+    # sebagian terminal IDE perintah tersebut dapat menghapus notifikasi.
+    if not sys.stdout.isatty():
+        print("\n" * 2)
+        return
     os.system("cls" if os.name == "nt" else "clear")
 
 
@@ -41,12 +46,39 @@ def tekan_enter_kembali(pesan="\nTekan Enter untuk kembali..."):
         pass
 
 
-def jalankan_fitur(func, *args, **kwargs):
-    """Membuka fitur secara bersih (tanpa menumpuk) lalu menunggu Enter untuk kembali."""
+def tampilkan_peringatan_login(pesan):
+    """Pertahankan notifikasi login tetap terlihat sampai pengguna siap lanjut."""
     bersihkan_layar()
-    hasil = func(*args, **kwargs)
-    tekan_enter_kembali("\nTekan Enter untuk kembali...")
-    return hasil
+    print("==========================================================================")
+    print("              LOGIN SISTEM PENGELOLAAN BARANG SMKMART")
+    print("==========================================================================")
+    print(pesan)
+    tekan_enter_kembali("\nTekan Enter untuk mencoba login kembali...")
+
+
+def tunggu_peringatan(pesan=None, prompt="Tekan Enter untuk melanjutkan..."):
+    """Jeda hanya setelah ada pesan agar aksi berikutnya tidak menghapusnya."""
+    if pesan:
+        print(pesan)
+    tekan_enter_kembali(prompt)
+
+
+def jalankan_fitur(func, *args, **kwargs):
+    """Pertahankan halaman fitur; hanya pilihan 0 yang kembali ke menu induk."""
+    while True:
+        bersihkan_layar()
+        try:
+            func(*args, **kwargs)
+        except (EOFError, KeyboardInterrupt):
+            print("\n[!] Aksi dibatalkan. Anda tetap berada di fitur ini.")
+        except Exception as error:
+            print(f"\n[!] Terjadi kesalahan: {error}")
+        try:
+            pilihan = input("\nMasukkan 0 untuk kembali ke menu sebelumnya: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return
+        if pilihan == "0":
+            return
 
 
 def baca_tombol_navigasi(prompt_teks="[n] Next | [p] Prev | [s/0/Enter] Lanjut: "):
@@ -362,19 +394,7 @@ def muat_batch_stok(laporkan_ketidaksesuaian=True):
                     "sisa": sisa,
                     "harga_modal": harga_modal,
                 })
-        if laporkan_ketidaksesuaian:
-            ketidaksesuaian = []
-            for nama, detail in data_barang.items():
-                stok_batch = jumlah_stok_batch(detail["id"])
-                if stok_batch != detail["stok"]:
-                    ketidaksesuaian.append(
-                        f"ID {detail['id']} ({nama}): stok FIFO {stok_batch}, stok barang {detail['stok']}"
-                    )
-            if ketidaksesuaian:
-                print("[!] Ditemukan ketidaksesuaian stok FIFO:")
-                for masalah in ketidaksesuaian:
-                    print(f"    - {masalah}")
-                print("    Periksa data batch sebelum restok, mengubah stok, atau checkout.")
+        selaraskan_batch_dengan_stok(laporkan=laporkan_ketidaksesuaian)
         return
 
     for detail in data_barang.values():
@@ -392,6 +412,54 @@ def muat_batch_stok(laporkan_ketidaksesuaian=True):
             "harga_modal": detail.get("hargaBeli"),
         })
     simpan_batch_stok()
+
+
+def selaraskan_batch_dengan_stok(laporkan=True):
+    """Samakan total batch FIFO dengan stok data barang agar tidak ada selisih."""
+    jumlah_dirapikan = 0
+    for detail in data_barang.values():
+        id_barang = detail["id"]
+        stok_batch = jumlah_stok_batch(id_barang)
+        selisih = detail["stok"] - stok_batch
+        if selisih == 0:
+            continue
+        if selisih > 0:
+            urutan = max(
+                (batch["urutan"] for batch in batch_stok if batch["id_barang"] == id_barang),
+                default=0,
+            ) + 1
+            batch_stok.append({
+                "id_barang": id_barang,
+                "urutan": urutan,
+                "tanggal": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "sisa": selisih,
+                "harga_modal": None,
+            })
+        else:
+            kelebihan = -selisih
+            for batch in sorted(
+                (batch for batch in batch_stok if batch["id_barang"] == id_barang),
+                key=lambda batch: (batch["urutan"], batch["tanggal"]),
+                reverse=True,
+            ):
+                if kelebihan <= 0:
+                    break
+                diambil = min(kelebihan, batch["sisa"])
+                batch["sisa"] -= diambil
+                kelebihan -= diambil
+            batch_stok[:] = [batch for batch in batch_stok if batch["sisa"] > 0]
+        jumlah_dirapikan += 1
+
+    id_valid = {detail["id"] for detail in data_barang.values()}
+    jumlah_sebelum = len(batch_stok)
+    batch_stok[:] = [batch for batch in batch_stok if batch["id_barang"] in id_valid]
+    if len(batch_stok) != jumlah_sebelum:
+        jumlah_dirapikan += 1
+
+    if jumlah_dirapikan:
+        simpan_batch_stok()
+        if laporkan:
+            print(f"[i] Stok FIFO diselaraskan otomatis dengan data barang untuk {jumlah_dirapikan} barang.")
 
 
 def jumlah_stok_batch(id_barang):
@@ -1813,13 +1881,13 @@ def checkout():
 def cooldown_login(durasi):
     for sisa in range(durasi, 0, -1):
         print(
-            f"\rTerlalu banyak percobaan. Coba lagi dalam {sisa} detik... \033[K",
+            f"\rTerlalu banyak percobaan. Coba lagi dalam {sisa} detik...",
             end="",
             flush=True,
         )
         time.sleep(1)
 
-    print("\rCooldown selesai. Silakan coba login kembali.\033[K")
+    print("\nCooldown selesai. Silakan coba login kembali.")
 
 
 def get_password(prompt="Password: "):
@@ -1963,27 +2031,28 @@ def tambah_barang_keranjang_ui():
 
 
 def kelola_data_barang_ui():
-    print("\n--- KELOLA DATA BARANG ---")
-    print("1. Tambah Barang")
-    print("2. Ubah Barang")
-    print("3. Hapus Barang")
-    print("4. Recycle Bin (Restore/Hapus Permanen)")
-    print("0. Batal")
-    sub = input("Pilih aksi (0-4): ").strip()
-    bersihkan_layar()
-    if sub == "1":
-        tambah_barang()
-    elif sub == "2":
-        ubah_barang()
-    elif sub == "3":
-        hapus_barang()
-    elif sub == "4":
-        menu_recycle_bin()
-        return
-    elif sub == "0":
-        return
-    else:
-        print("\n[!] Pilihan tidak valid.")
+    while True:
+        bersihkan_layar()
+        print("\n--- KELOLA DATA BARANG ---")
+        print("1. Tambah Barang")
+        print("2. Ubah Barang")
+        print("3. Hapus Barang")
+        print("4. Recycle Bin (Restore/Hapus Permanen)")
+        print("0. Kembali")
+        sub = input("Pilih aksi (0-4): ").strip()
+        if sub == "0":
+            return
+        fitur = {
+            "1": tambah_barang,
+            "2": ubah_barang,
+            "3": hapus_barang,
+            "4": menu_recycle_bin,
+        }.get(sub)
+        if fitur is None:
+            print("\n[!] Pilihan tidak valid.")
+            tekan_enter_kembali("Tekan Enter untuk tetap di menu Kelola Data Barang...")
+            continue
+        jalankan_fitur(fitur)
 
 
 def loop_menu_gudang(dari_admin=False):
@@ -2007,39 +2076,30 @@ def loop_menu_gudang(dari_admin=False):
 
         pilihan = input("Masukkan pilihan menu (0-10): ").strip()
 
-        if pilihan == "1":
-            jalankan_fitur(tambah_barang)
-        elif pilihan == "2":
-            bersihkan_layar()
-            muat_data()
-            if not data_barang:
-                print("\n[!] Data barang masih kosong.")
-            else:
-                tampilkan_tabel_grouped()
-            tekan_enter_kembali("\nTekan Enter untuk kembali...")
-        elif pilihan == "3":
-            jalankan_fitur(restok_barang)
-        elif pilihan == "4":
-            jalankan_fitur(lihat_riwayat_gudang)
-        elif pilihan == "5":
-            jalankan_fitur(ubah_barang)
-        elif pilihan == "6":
-            jalankan_fitur(hapus_barang)
-        elif pilihan == "7":
-            jalankan_fitur(cari_barang_linear, data_barang)
-        elif pilihan == "8":
-            summary_penjualan()
-        elif pilihan == "9":
-            bersihkan_layar()
-            menu_recycle_bin()
-        elif pilihan == "10":
-            jalankan_fitur(kelola_barcode)
-        elif pilihan == "0":
+        if pilihan == "0":
             break
         else:
-            bersihkan_layar()
-            print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
-            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+            fitur = {
+                "1": tambah_barang,
+                "2": tampilkan_tabel_grouped,
+                "3": restok_barang,
+                "4": lihat_riwayat_gudang,
+                "5": ubah_barang,
+                "6": hapus_barang,
+                "7": cari_barang_linear,
+                "8": summary_penjualan,
+                "9": menu_recycle_bin,
+                "10": kelola_barcode,
+            }.get(pilihan)
+            if fitur is None:
+                bersihkan_layar()
+                print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
+                tekan_enter_kembali("Tekan Enter untuk kembali ke menu gudang...")
+                continue
+            if fitur is cari_barang_linear:
+                jalankan_fitur(fitur, data_barang)
+            else:
+                jalankan_fitur(fitur)
 
 
 def loop_menu_kasir(dari_admin=False):
@@ -2061,30 +2121,30 @@ def loop_menu_kasir(dari_admin=False):
 
         pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
 
-        if pilihan_kasir == "1":
-            jalankan_fitur(tambah_barang_keranjang_ui)
-        elif pilihan_kasir == "2":
-            jalankan_fitur(lihat_keranjang_ui)
-        elif pilihan_kasir == "3":
-            jalankan_fitur(hapus_item_keranjang_ui)
-        elif pilihan_kasir == "4":
-            jalankan_fitur(checkout)
-        elif pilihan_kasir == "5":
-            riwayat_transaksi()
-        elif pilihan_kasir == "6":
-            jalankan_fitur(cari_barang_linear, data_barang)
-        elif pilihan_kasir == "7":
-            summary_penjualan()
-        elif pilihan_kasir == "8":
-            jalankan_fitur(scanner_barang)
-        elif pilihan_kasir == "0":
+        if pilihan_kasir == "0":
             if keranjang:
                 keranjang.clear()
             break
         else:
-            bersihkan_layar()
-            print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
-            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+            fitur = {
+                "1": tambah_barang_keranjang_ui,
+                "2": lihat_keranjang_ui,
+                "3": hapus_item_keranjang_ui,
+                "4": checkout,
+                "5": riwayat_transaksi,
+                "6": cari_barang_linear,
+                "7": summary_penjualan,
+                "8": scanner_barang,
+            }.get(pilihan_kasir)
+            if fitur is None:
+                bersihkan_layar()
+                print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
+                tekan_enter_kembali("Tekan Enter untuk kembali ke menu kasir...")
+                continue
+            if fitur is cari_barang_linear:
+                jalankan_fitur(fitur, data_barang)
+            else:
+                jalankan_fitur(fitur)
 
 
 def main():
@@ -2115,11 +2175,14 @@ def main():
         if kunci == 1:
             print("[!] MODE ADMIN ONLY: sementara hanya akun dengan role admin yang dapat login.")
 
-        username = input("Username: ").strip()
-        password = get_password("Password: ")
-
-        if username == "0":
-            sys.exit()
+        try:
+            username = input("Username: ").strip()
+            if username == "0":
+                sys.exit()
+            password = get_password("Password: ")
+        except (EOFError, KeyboardInterrupt):
+            tampilkan_peringatan_login("[!] Proses login dibatalkan.")
+            continue
 
         login_berhasil = False
         role_login = ""
@@ -2150,20 +2213,23 @@ def main():
                     break
 
         if not login_berhasil:
-            bersihkan_layar()
-            print("==========================================================================")
-            print("              LOGIN SISTEM PENGELOLAAN BARANG SMKMART")
-            print("==========================================================================")
             if akun_nonaktif:
-                print("\n[!] Akun Anda berstatus TIDAK AKTIF (dinonaktifkan). Hubungi Admin.")
+                tampilkan_peringatan_login(
+                    "[!] Akun Anda berstatus TIDAK AKTIF (dinonaktifkan). Hubungi Admin."
+                )
             elif akun_role_dibatasi:
-                print("\n[!] Akun ditemukan, tetapi mode admin-only hanya mengizinkan role admin.")
+                tampilkan_peringatan_login(
+                    "[!] Akun ditemukan, tetapi mode admin-only hanya mengizinkan role admin."
+                )
             elif Kesempatan == 2 or Kesempatan == 5:
-                print("\n[!] Username atau password salah!")
+                tampilkan_peringatan_login("[!] Username atau password salah!")
                 Kesempatan += 1
+                print("Terlalu banyak percobaan. Cooldown dimulai.")
                 cooldown_login(30)
             elif Kesempatan >= 8:
-                print("\n[!] Batas percobaan login tercapai. Mode sementara admin saja diaktifkan.")
+                tampilkan_peringatan_login(
+                    "[!] Batas percobaan login tercapai. Mode sementara admin saja diaktifkan."
+                )
                 if os.path.exists(USER_FILE):
                     with open(USER_FILE, "r", encoding="utf-8") as f:
                         baris_data = f.readlines()
@@ -2181,7 +2247,7 @@ def main():
                         f.writelines(baris_data)
                 Kesempatan = 0
             else:
-                print("\n[!] Username atau password salah!")
+                tampilkan_peringatan_login("[!] Username atau password salah!")
                 Kesempatan += 1
             continue
 
@@ -2215,42 +2281,32 @@ def main():
             print("10. Menu Gudang")
             print("0. Kembali ke halaman login")
             print("==========================================================================")
-
             pilihan_adm = input("Masukkan pilihan menu (0-10): ").strip()
 
-            if pilihan_adm == "1":
-                bersihkan_layar()
-                kelola_pengguna()
-            elif pilihan_adm == "2":
-                jalankan_fitur(kelola_data_barang_ui)
-            elif pilihan_adm == "3":
-                jalankan_fitur(cari_barang_linear, data_barang)
-            elif pilihan_adm == "4":
-                bersihkan_layar()
-                muat_data()
-                if not data_barang:
-                    print("\n[!] Data barang masih kosong.")
-                else:
-                    tampilkan_tabel_grouped()
-                tekan_enter_kembali("\nTekan Enter untuk kembali...")
-            elif pilihan_adm == "5":
-                summary_penjualan()
-            elif pilihan_adm == "6":
-                jalankan_fitur(lihat_riwayat_gudang)
-            elif pilihan_adm == "7":
-                riwayat_transaksi()
-            elif pilihan_adm == "8":
-                jalankan_fitur(ganti_password_sendiri)
-            elif pilihan_adm == "9":
-                loop_menu_kasir(dari_admin=True)
-            elif pilihan_adm == "10":
-                loop_menu_gudang(dari_admin=True)
-            elif pilihan_adm == "0":
+            if pilihan_adm == "0":
                 admin_menu = False
             else:
-                bersihkan_layar()
-                print("\n[!] Pilihan tidak valid.")
-                tekan_enter_kembali("\nTekan Enter untuk kembali...")
+                fitur_admin = {
+                    "1": kelola_pengguna,
+                    "2": kelola_data_barang_ui,
+                    "3": cari_barang_linear,
+                    "4": tampilkan_tabel_grouped,
+                    "5": summary_penjualan,
+                    "6": lihat_riwayat_gudang,
+                    "7": riwayat_transaksi,
+                    "8": ganti_password_sendiri,
+                    "9": lambda: loop_menu_kasir(dari_admin=True),
+                    "10": lambda: loop_menu_gudang(dari_admin=True),
+                }.get(pilihan_adm)
+                if fitur_admin is None:
+                    bersihkan_layar()
+                    print("\n[!] Pilihan tidak valid.")
+                    tekan_enter_kembali("Tekan Enter untuk kembali ke menu admin...")
+                    continue
+                if fitur_admin is cari_barang_linear:
+                    jalankan_fitur(fitur_admin, data_barang)
+                else:
+                    jalankan_fitur(fitur_admin)
 
         if Gudang:
             loop_menu_gudang(dari_admin=False)
