@@ -1,7 +1,8 @@
-import getpass
+import msvcrt
 import os
 import re
 import sys
+import time
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,9 +24,10 @@ next_kategori_id = 1
 current_user = ""
 
 admin_menu = False
-Gudang = False  
+Gudang = False
 kasir = False
 login = True
+Kesempatan = 0
 
 def insertion_sort(arr, left, right, key_func, reverse=False):
     for i in range(left + 1, right + 1):
@@ -1218,8 +1220,43 @@ def tampilkan_tabel_pengguna(users_list, judul="DAFTAR PENGGUNA SISTEM"):
         print(f"{idx:<4} {u:<25} {r:<18} {st:<12}")
     print("==========================================================================")
 
+def buka_kunci_admin_only():
+    if not os.path.exists(USER_FILE):
+        print("\n[!] File User.txt tidak ditemukan.")
+        return
+
+    with open(USER_FILE, "r", encoding="utf-8") as f:
+        baris_data = f.readlines()
+
+    kunci_aktif = any(
+        line.strip() == "Kunci=1"
+        for line in baris_data
+    )
+    if not kunci_aktif:
+        print("\n[!] Mode admin-only tidak sedang aktif.")
+        return
+
+    konfirmasi = input("Buka kunci admin-only? (y/n): ").strip().lower()
+    if konfirmasi != "y":
+        print("\n[!] Pembukaan kunci dibatalkan.")
+        return
+
+    for i, line in enumerate(baris_data):
+        if line.strip().startswith("Kunci="):
+            baris_data[i] = "Kunci=0\n"
+            break
+
+    with open(USER_FILE, "w", encoding="utf-8") as f:
+        f.writelines(baris_data)
+    print("\n[V] Mode admin-only berhasil dibuka. Semua role dapat login kembali.")
+
 def kelola_pengguna():
     while True:
+        kunci_aktif = False
+        if os.path.exists(USER_FILE):
+            with open(USER_FILE, "r", encoding="utf-8") as f:
+                kunci_aktif = any(line.strip() == "Kunci=1" for line in f)
+
         print("\n==========================================================================")
         print("                             KELOLA PENGGUNA                              ")
         print("==========================================================================")
@@ -1228,12 +1265,18 @@ def kelola_pengguna():
         print("3. Ubah Status Akun ")
         print("4. Restore Akun (Aktifkan Kembali)")
         print("5. Hapus Permanen Pengguna")
+        if kunci_aktif:
+            print("6. Buka Kunci (Admin Only)")
         print("0. Kembali")
         print("==========================================================================")
-        pilih = input("Pilih menu (0-5): ").strip()
+        pilih = input(f"Pilih menu (0-{6 if kunci_aktif else 5}): ").strip()
 
         if pilih == "0":
             break
+
+        if pilih == "6" and kunci_aktif:
+            buka_kunci_admin_only()
+            continue
 
         users_list = []
         if os.path.exists(USER_FILE):
@@ -1358,7 +1401,7 @@ def kelola_pengguna():
             users_list = [u for u in users_list if u[0].casefold() != target_user.casefold()]
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
-                    f.write(f"{u},{pw},{r},{st}\n")            
+                    f.write(f"{u},{pw},{r},{st}\n")
                     print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
         else:
             print("\n[!] Pilihan tidak valid.")
@@ -1612,9 +1655,40 @@ def checkout():
     print("            Terima kasih telah berbelanja di SMKMART!                    ")
     print("==========================================================================")
 
+def cooldown_login(durasi):
+    for sisa in range(durasi, 0, -1):
+           print(
+               f"\rTerlalu banyak percobaan. Coba lagi dalam {sisa} detik... \033[K",
+               end="",
+               flush=True,
+           )
+           time.sleep(1)
+
+    print("\rCooldown selesai. Silakan coba login kembali.\033[K")
+
+def get_password(prompt="Password: "):
+    print(prompt, end="", flush=True)
+    password = []
+    while True:
+        karakter = msvcrt.getwch()
+        if karakter in ("\r", "\n"):
+            print()
+            return "".join(password)
+        if karakter == "\003":
+            raise KeyboardInterrupt
+        if karakter == "\b":
+            if password:
+                password.pop()
+                print("\b \b", end="", flush=True)
+        elif karakter in ("\x00", "\xe0"):
+            msvcrt.getwch()
+        else:
+            password.append(karakter)
+            print("*", end="", flush=True)
+
 def main():
-    global admin_menu, Gudang, kasir, current_user
-    while login:
+    global admin_menu, Gudang, kasir, current_user, Kesempatan
+    while True:
         admin_menu = False
         Gudang = False
         kasir = False
@@ -1624,37 +1698,85 @@ def main():
         print("==========================================================================")
         print("Masukkan username dan password untuk masuk ke sistem.")
         print("(Keluar Aplikasi: 0)")
-        username = input("Username: ").strip()
-        password = getpass.getpass("Password: ")
 
-        if username == "0" and password == "0":
+        kunci = 0
+        if os.path.exists(USER_FILE):
+            with open(USER_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("Kunci="):
+                        try:
+                            kunci = int(line.split("=", 1)[1])
+                        except ValueError:
+                            print("[!] Nilai Kunci di User.txt tidak valid; mode admin-only diabaikan.")
+                        break
+        if kunci == 1:
+            print("[!] MODE ADMIN ONLY: sementara hanya akun dengan role admin yang dapat login.")
+
+        username = input("Username: ").strip()
+        password = get_password("Password: ")
+
+        if username == "0":
             sys.exit()
 
         login_berhasil = False
         role_login = ""
         akun_nonaktif = False
-
+        akun_role_dibatasi = False
         if os.path.exists(USER_FILE):
             with open(USER_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        parts = [p.strip() for p in line.strip().split(",")]
-                        if len(parts) >= 3:
-                            user, pwd, role = parts[0], parts[1], parts[2]
-                            st = parts[3] if len(parts) > 3 else "aktif"
-                            if user == username and pwd == password:
-                                if st == "tidak_aktif":
-                                    akun_nonaktif = True
-                                else:
-                                    role_login = role
-                                    login_berhasil = True
-                                break
+                user_lines = f.readlines()
+
+            for line in user_lines:
+                if not line.strip() or line.strip().startswith("Kunci="):
+                    continue
+                parts = [p.strip() for p in line.strip().split(",")]
+
+                if len(parts) < 3:
+                    continue
+                user, pwd, role = parts[0], parts[1], parts[2]
+                status = parts[3].lower() if len(parts) > 3 else "aktif"
+
+                if user == username and pwd == password:
+                    if status == "tidak_aktif":
+                        akun_nonaktif = True
+                    elif kunci == 1 and role.strip().lower() != "admin":
+                        akun_role_dibatasi = True
+                    else:
+                        role_login = role
+                        login_berhasil = True
+                    break
 
         if not login_berhasil:
             if akun_nonaktif:
                 print("\n[!] Akun Anda berstatus TIDAK AKTIF (dinonaktifkan). Hubungi Admin.")
+            elif akun_role_dibatasi:
+                print("\n[!] Akun ditemukan, tetapi mode admin-only hanya mengizinkan role admin.")
+            elif Kesempatan == 2 or Kesempatan == 5:
+                print("\n[!] Username atau password salah!")
+                Kesempatan += 1
+                cooldown_login(30)
+            elif Kesempatan >= 8:
+                print("\n[!] Batas percobaan login tercapai. Mode sementara admin saja diaktifkan.")
+                if os.path.exists(USER_FILE):
+                    with open(USER_FILE, "r", encoding="utf-8") as f:
+                        baris_data = f.readlines()
+
+                    kunci_ditemukan = False
+                    for i, line in enumerate(baris_data):
+                        if line.strip().startswith("Kunci="):
+                            baris_data[i] = "Kunci=1\n"
+                            kunci_ditemukan = True
+                            break
+                    if not kunci_ditemukan:
+                        baris_data.insert(0, "Kunci=1\n")
+
+                    with open(USER_FILE, "w", encoding="utf-8") as f:
+                        f.writelines(baris_data)
+                Kesempatan = 0
             else:
                 print("\n[!] Username atau password salah!")
+                Kesempatan += 1
             continue
 
         current_user = username
