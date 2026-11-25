@@ -23,6 +23,16 @@ kategori_by_name = {}
 next_kategori_id = 1
 current_user = ""
 
+def bersihkan_layar():
+    os.system("cls" if os.name == "nt" else "clear")
+
+def tunggu_sebelum_lanjut():
+    """Beri waktu membaca hasil/peringatan sebelum layar menu dibersihkan."""
+    try:
+        input("\nTekan Enter untuk kembali ke menu...")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
 admin_menu = False
 Gudang = False
 kasir = False
@@ -224,7 +234,7 @@ def muat_data():
                         }
                     except ValueError:
                         print(f"[!] Baris data barang dilewati karena format angka tidak valid: {line.strip()}")
-    muat_batch_stok()
+    muat_batch_stok(laporkan_ketidaksesuaian=False)
 
 def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -247,7 +257,7 @@ def simpan_batch_stok():
                 f",{batch['sisa']},{modal}\n"
             )
 
-def muat_batch_stok():
+def muat_batch_stok(laporkan_ketidaksesuaian=True):
     batch_stok.clear()
     if os.path.exists(FIFO_FILE):
         with open(FIFO_FILE, "r", encoding="utf-8") as file:
@@ -274,13 +284,19 @@ def muat_batch_stok():
                     "sisa": sisa,
                     "harga_modal": harga_modal,
                 })
-        for detail in data_barang.values():
-            stok_batch = jumlah_stok_batch(detail["id"])
-            if stok_batch != detail["stok"]:
-                print(
-                    f"[!] Stok FIFO ID {detail['id']} ({stok_batch}) berbeda dari data barang "
-                    f"({detail['stok']}). Periksa batch sebelum restok, ubah stok, atau checkout."
-                )
+        if laporkan_ketidaksesuaian:
+            ketidaksesuaian = []
+            for nama, detail in data_barang.items():
+                stok_batch = jumlah_stok_batch(detail["id"])
+                if stok_batch != detail["stok"]:
+                    ketidaksesuaian.append(
+                        f"ID {detail['id']} ({nama}): stok FIFO {stok_batch}, stok barang {detail['stok']}"
+                    )
+            if ketidaksesuaian:
+                print("[!] Ditemukan ketidaksesuaian stok FIFO:")
+                for masalah in ketidaksesuaian:
+                    print(f"    - {masalah}")
+                print("    Periksa data batch sebelum restok, mengubah stok, atau checkout.")
         return
 
     for detail in data_barang.values():
@@ -1689,6 +1705,7 @@ def get_password(prompt="Password: "):
 def main():
     global admin_menu, Gudang, kasir, current_user, Kesempatan
     while True:
+        bersihkan_layar()
         admin_menu = False
         Gudang = False
         kasir = False
@@ -1748,6 +1765,10 @@ def main():
                     break
 
         if not login_berhasil:
+            bersihkan_layar()
+            print("==========================================================================")
+            print("              LOGIN SISTEM PENGELOLAAN BARANG SMKMART")
+            print("==========================================================================")
             if akun_nonaktif:
                 print("\n[!] Akun Anda berstatus TIDAK AKTIF (dinonaktifkan). Hubungi Admin.")
             elif akun_role_dibatasi:
@@ -1780,7 +1801,7 @@ def main():
             continue
 
         current_user = username
-        os.system('cls' if os.name == 'nt' else 'clear')
+        bersihkan_layar()
         print(f"\n[V] Login berhasil! Selamat datang, {username}")
         print(f"Peran Anda: {role_login}")
 
@@ -1801,6 +1822,9 @@ def main():
         print("==========================================================================")
 
         while admin_menu:
+            if sys.stdout.isatty():
+                tunggu_sebelum_lanjut()
+            bersihkan_layar()
             print("\n==========================================================================")
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
             print("==========================================================================")
@@ -1865,6 +1889,9 @@ def main():
                 kasir = True
 
                 while kasir:
+                    if sys.stdout.isatty():
+                        tunggu_sebelum_lanjut()
+                    bersihkan_layar()
                     print("\n==========================================================================")
                     print("                          SISTEM KASIR SMKMART                            ")
                     print("==========================================================================")
@@ -2010,6 +2037,9 @@ def main():
             elif pilihan_adm == "10":
                 Gudang = True
                 while Gudang:
+                    if sys.stdout.isatty():
+                        tunggu_sebelum_lanjut()
+                    bersihkan_layar()
                     print("\n==========================================================================")
                     print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
                     print("==========================================================================")
@@ -2072,6 +2102,9 @@ def main():
                 print("\n[!] Pilihan tidak valid.")
 
         while Gudang:
+            if sys.stdout.isatty():
+                tunggu_sebelum_lanjut()
+            bersihkan_layar()
             print("\n==========================================================================")
             print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
             print("==========================================================================")
@@ -2129,6 +2162,9 @@ def main():
                 print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
 
         while kasir:
+            if sys.stdout.isatty():
+                tunggu_sebelum_lanjut()
+            bersihkan_layar()
             print("\n==========================================================================")
             print("                          SISTEM KASIR SMKMART                            ")
             print("==========================================================================")
