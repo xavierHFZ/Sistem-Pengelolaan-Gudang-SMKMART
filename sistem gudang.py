@@ -23,21 +23,86 @@ kategori_by_name = {}
 next_kategori_id = 1
 current_user = ""
 
-def bersihkan_layar():
-    os.system("cls" if os.name == "nt" else "clear")
-
-def tunggu_sebelum_lanjut():
-    """Beri waktu membaca hasil/peringatan sebelum layar menu dibersihkan."""
-    try:
-        input("\nTekan Enter untuk kembali ke menu...")
-    except (EOFError, KeyboardInterrupt):
-        pass
-
 admin_menu = False
 Gudang = False
 kasir = False
 login = True
 Kesempatan = 0
+
+
+def bersihkan_layar():
+    os.system("cls" if os.name == "nt" else "clear")
+
+
+def tekan_enter_kembali(pesan="\nTekan Enter untuk kembali..."):
+    try:
+        input(pesan)
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+
+def jalankan_fitur(func, *args, **kwargs):
+    """Membuka fitur secara bersih (tanpa menumpuk) lalu menunggu Enter untuk kembali."""
+    bersihkan_layar()
+    hasil = func(*args, **kwargs)
+    tekan_enter_kembali("\nTekan Enter untuk kembali...")
+    return hasil
+
+
+def baca_tombol_navigasi(prompt_teks="[n] Next | [p] Prev | [s/0/Enter] Lanjut: "):
+    """Membaca 1 tombol lewat msvcrt (dengan fallback input() jika non-TTY)."""
+    print(prompt_teks, end="", flush=True)
+    try:
+        if not sys.stdin.isatty():
+            return input().strip().lower()
+        ch = msvcrt.getwch()
+        if ch in ("\x00", "\xe0"):
+            msvcrt.getwch()
+            return ""
+        print(ch if ch.isprintable() else "")
+        return ch.lower()
+    except Exception:
+        return input().strip().lower()
+
+
+def tampilkan_halaman_items(items, judul="DAFTAR BARANG", ukuran_halaman=10):
+    """Menampilkan daftar (nama, detail) per halaman dengan navigasi n/p."""
+    total_item = len(items)
+    total_halaman = max(1, (total_item + ukuran_halaman - 1) // ukuran_halaman)
+    halaman = 0
+
+    while True:
+        awal = halaman * ukuran_halaman
+        akhir = awal + ukuran_halaman
+        potongan = items[awal:akhir]
+
+        bersihkan_layar()
+        print("\n==========================================================================")
+        print(f" {judul} (Halaman {halaman + 1}/{total_halaman} | Total: {total_item} item)")
+        print("==========================================================================")
+        print(f"{'ID':<6} {'Nama Barang':<30} {'Kategori':<16} {'Stok':<6} {'Harga':<12}")
+        print("--------------------------------------------------------------------------")
+
+        for nama, detail in potongan:
+            harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
+            kat_nama = get_nama_kategori(id_ke_kategori(detail["id"]))[:16]
+            print(f"{detail['id']:<6} {nama:<30} {kat_nama:<16} {detail['stok']:<6} {harga_fmt:<12}")
+            batas_restock = detail.get("batas_restock", 5)
+            if detail["stok"] < batas_restock:
+                print(f"     --> [!] Stok menipis (batas restock: {batas_restock})")
+
+        print("--------------------------------------------------------------------------")
+        if total_halaman == 1:
+            break
+
+        tombol = baca_tombol_navigasi("[n] Halaman Berikutnya  |  [p] Halaman Sebelumnya  |  [s/0/Enter] Lanjut: ")
+        if tombol == "n":
+            halaman = (halaman + 1) % total_halaman
+        elif tombol == "p":
+            halaman = (halaman - 1) % total_halaman
+        elif tombol in ("s", "0", "\r", "\n", ""):
+            break
+
 
 def insertion_sort(arr, left, right, key_func, reverse=False):
     for i in range(left + 1, right + 1):
@@ -51,6 +116,7 @@ def insertion_sort(arr, left, right, key_func, reverse=False):
             else:
                 break
         arr[j + 1] = temp
+
 
 def merge(arr, l, m, r, key_func, reverse=False):
     len1, len2 = m - l + 1, r - m
@@ -76,6 +142,7 @@ def merge(arr, l, m, r, key_func, reverse=False):
         j += 1
         k += 1
 
+
 def tim_sort(arr, key_func=lambda x: x[0], reverse=False):
     RUN = 32
     n = len(arr)
@@ -90,6 +157,7 @@ def tim_sort(arr, key_func=lambda x: x[0], reverse=False):
                 merge(arr, left, mid, right, key_func, reverse)
         size = 2 * size
     return arr
+
 
 def muat_kategori():
     global next_kategori_id
@@ -116,11 +184,13 @@ def muat_kategori():
                         max_id = max(max_id, kid)
     next_kategori_id = max_id + 1
 
+
 def simpan_kategori():
     with open(KATEGORI_FILE, "w", encoding="utf-8") as f:
         f.writelines(
             f"{kid},{kategori_by_id[kid]}\n" for kid in sorted(kategori_by_id)
         )
+
 
 def tambah_kategori(nama):
     global next_kategori_id
@@ -136,22 +206,26 @@ def tambah_kategori(nama):
     simpan_kategori()
     return kid
 
+
 def get_nama_kategori(kid):
     return kategori_by_id.get(kid, "Tanpa Kategori")
 
+
 def id_ke_kategori(id_barang):
     return id_barang // 100
+
 
 def generate_id(id_kategori):
     base = id_kategori * 100
     max_seq = 0
     for detail in data_barang.values():
-        if id_ke_kategori(detail['id']) == id_kategori:
-            seq = detail['id'] - base
+        if id_ke_kategori(detail["id"]) == id_kategori:
+            seq = detail["id"] - base
             max_seq = max(max_seq, seq)
     if max_seq >= 99:
         return None
     return base + max_seq + 1
+
 
 def hitung_transaksi_hari_ini():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
@@ -164,6 +238,7 @@ def hitung_transaksi_hari_ini():
             if m and m.group(1) == hari_ini:
                 jumlah += 1
     return jumlah
+
 
 def muat_data():
     data_barang.clear()
@@ -236,6 +311,7 @@ def muat_data():
                         print(f"[!] Baris data barang dilewati karena format angka tidak valid: {line.strip()}")
     muat_batch_stok(laporkan_ketidaksesuaian=False)
 
+
 def simpan_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         for nama, detail in data_barang.items():
@@ -248,6 +324,7 @@ def simpan_data():
                 f"{barcode}\n"
             )
 
+
 def simpan_batch_stok():
     with open(FIFO_FILE, "w", encoding="utf-8") as file:
         for batch in batch_stok:
@@ -256,6 +333,7 @@ def simpan_batch_stok():
                 f"{batch['id_barang']},{batch['urutan']},{batch['tanggal']}"
                 f",{batch['sisa']},{modal}\n"
             )
+
 
 def muat_batch_stok(laporkan_ketidaksesuaian=True):
     batch_stok.clear()
@@ -315,8 +393,10 @@ def muat_batch_stok(laporkan_ketidaksesuaian=True):
         })
     simpan_batch_stok()
 
+
 def jumlah_stok_batch(id_barang):
     return sum(batch["sisa"] for batch in batch_stok if batch["id_barang"] == id_barang)
+
 
 def rencana_fifo(id_barang, jumlah):
     sisa_diminta = jumlah
@@ -347,16 +427,19 @@ def rencana_fifo(id_barang, jumlah):
         return None, None
     return rencana, modal if modal_lengkap else None
 
+
 def terapkan_rencana_fifo(rencana):
     for index, jumlah in rencana:
         batch_stok[index]["sisa"] -= jumlah
     batch_stok[:] = [batch for batch in batch_stok if batch["sisa"] > 0]
+
 
 def terapkan_banyak_rencana_fifo(daftar_rencana):
     for rencana in daftar_rencana:
         for index, jumlah in rencana:
             batch_stok[index]["sisa"] -= jumlah
     batch_stok[:] = [batch for batch in batch_stok if batch["sisa"] > 0]
+
 
 def tambah_batch_stok(id_barang, jumlah, harga_modal):
     riwayat = data_harga.get(id_barang, [])
@@ -380,6 +463,7 @@ def tambah_batch_stok(id_barang, jumlah, harga_modal):
             file.write(f"{id_barang},{urutan},{harga_modal}\n")
         data_harga.setdefault(id_barang, []).append({"urutan": urutan, "harga": harga_modal})
 
+
 def barcode_sudah_dipakai(barcode, kecuali_id=None):
     barcode = str(barcode or "").strip()
     return barcode not in {"", "0"} and any(
@@ -388,50 +472,42 @@ def barcode_sudah_dipakai(barcode, kecuali_id=None):
         for detail in data_barang.values()
     )
 
+
 def get_flat_items():
     items = []
     for kid in sorted(kategori_by_id.keys()):
-        kat_items = [(nama, detail) for nama, detail in data_barang.items()
-                     if id_ke_kategori(detail['id']) == kid and detail.get('status', 'aktif') == 'aktif']
-        kat_items.sort(key=lambda x: x[1]['id'])
+        kat_items = [
+            (nama, detail)
+            for nama, detail in data_barang.items()
+            if id_ke_kategori(detail["id"]) == kid and detail.get("status", "aktif") == "aktif"
+        ]
+        kat_items.sort(key=lambda x: x[1]["id"])
         items.extend(kat_items)
     return items
 
-def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG"):
+
+def tampilkan_tabel_grouped(items=None, judul="DAFTAR BARANG", ukuran_halaman=10):
     muat_data()
     if items is None:
         items = get_flat_items()
     else:
-        items = [(nama, detail) for nama, detail in items if detail.get('status', 'aktif') == 'aktif']
+        items = [
+            (nama, detail)
+            for nama, detail in items
+            if detail.get("status", "aktif") == "aktif"
+        ]
     if not items:
         print("\n[!] Data barang masih kosong atau tidak ada barang aktif.")
         return
-    print("\n==========================================================================")
-    print(f"                         {judul}")
-    print("==========================================================================")
-    for kid in sorted(kategori_by_id.keys()):
-        kat_items = [(nama, detail) for nama, detail in items if id_ke_kategori(detail['id']) == kid]
-        if not kat_items:
-            continue
-        kat_items.sort(key=lambda x: x[1]['id'])
-        print(f"\nKategori: {kategori_by_id[kid]} (ID: {kid}, Range: {kid*100+1}-{kid*100+99})")
-        print("--------------------------------------------------------------------------")
-        print(f"{'ID':<6} {'Nama Barang':<30} {'Stok':<8} {'Batas Restock':<14} {'Harga':<12}")
-        print("--------------------------------------------------------------------------")
-        for nama, detail in kat_items:
-            harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
-            batas_restock = detail.get('batas_restock', 5)
-            print(f"{detail['id']:<6} {nama:<30} {detail['stok']:<8} {batas_restock:<14} {harga_fmt:<12}")
-            if detail['stok'] < batas_restock:
-                print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']} (batas restock: {batas_restock}). Segera restock!")
-    print("\n==========================================================================")
+    tampilkan_halaman_items(items, judul=judul, ukuran_halaman=ukuran_halaman)
+
 
 def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
     muat_data()
     if items is None:
         items = get_flat_items()
     else:
-        items = [(nama, detail) for nama, detail in items if detail.get('status', 'aktif') == 'aktif']
+        items = [(nama, detail) for nama, detail in items if detail.get("status", "aktif") == "aktif"]
     items = [
         (nama, detail)
         for nama, detail in items
@@ -444,22 +520,23 @@ def tampilkan_tabel_grouped_barcode(items=None, judul="DAFTAR BARANG"):
     print(f"                         {judul}")
     print("==========================================================================")
     for kid in sorted(kategori_by_id.keys()):
-        kat_items = [(nama, detail) for nama, detail in items if id_ke_kategori(detail['id']) == kid]
+        kat_items = [(nama, detail) for nama, detail in items if id_ke_kategori(detail["id"]) == kid]
         if not kat_items:
             continue
-        kat_items.sort(key=lambda x: str(x[1]['barcode']).strip())
+        kat_items.sort(key=lambda x: str(x[1]["barcode"]).strip())
         print(f"\nKategori: {kategori_by_id[kid]} (Barcode: {kid}, Range: {kid*100+1}-{kid*100+99})")
         print("--------------------------------------------------------------------------")
         print(f"{'Barcode':<16} {'Nama Barang':<30} {'Stok':<8} {'Batas Restock':<14} {'Harga':<12}")
         print("--------------------------------------------------------------------------")
         for nama, detail in kat_items:
             harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
-            batas_restock = detail.get('batas_restock', 5)
-            barcode = str(detail['barcode']).strip()
+            batas_restock = detail.get("batas_restock", 5)
+            barcode = str(detail["barcode"]).strip()
             print(f"{barcode:<16} {nama:<30} {detail['stok']:<8} {batas_restock:<14} {harga_fmt:<12}")
-            if detail['stok'] < batas_restock:
+            if detail["stok"] < batas_restock:
                 print(f"     --> [!] Peringatan: Stok {nama} tersisa {detail['stok']} (batas restock: {batas_restock}). Segera restock!")
     print("\n==========================================================================")
+
 
 def cari_barang_linear(data_barang):
     muat_data()
@@ -485,7 +562,7 @@ def cari_barang_linear(data_barang):
             print("\n[!] ID barang harus berupa angka!")
             return
         for nama, detail in data_barang.items():
-            if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_cari:
+            if detail.get("status", "aktif") == "aktif" and detail["id"] == id_cari:
                 hasil.append((nama, detail))
                 break
     elif pilih == "2":
@@ -494,7 +571,7 @@ def cari_barang_linear(data_barang):
             print("\n[!] Nama barang tidak boleh kosong!")
             return
         for nama, detail in data_barang.items():
-            if detail.get('status', 'aktif') == 'aktif' and kata_kunci in nama.lower():
+            if detail.get("status", "aktif") == "aktif" and kata_kunci in nama.lower():
                 hasil.append((nama, detail))
     elif pilih == "3":
         try:
@@ -506,7 +583,7 @@ def cari_barang_linear(data_barang):
             print(f"\n[!] Kategori dengan ID {kid} tidak ditemukan.")
             return
         for nama, detail in data_barang.items():
-            if detail.get('status', 'aktif') == 'aktif' and id_ke_kategori(detail['id']) == kid:
+            if detail.get("status", "aktif") == "aktif" and id_ke_kategori(detail["id"]) == kid:
                 hasil.append((nama, detail))
     else:
         print("\n[!] Pilihan tidak valid.")
@@ -521,9 +598,10 @@ def cari_barang_linear(data_barang):
     print("==========================================================================")
     for nama, detail in hasil:
         harga_fmt = f"Rp{detail['harga']:,.0f}".replace(",", ".")
-        kat_nama = get_nama_kategori(id_ke_kategori(detail['id']))
+        kat_nama = get_nama_kategori(id_ke_kategori(detail["id"]))
         print(f"{detail['id']:<6} {kat_nama:<20} {nama:<30} {detail['stok']:<8} {harga_fmt:<12}")
     print("==========================================================================")
+
 
 def riwayat_transaksi():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
@@ -549,6 +627,7 @@ def riwayat_transaksi():
         return
 
     while True:
+        bersihkan_layar()
         print("\n==========================================================================")
         print("                         FILTER RIWAYAT TRANSAKSI                         ")
         print("==========================================================================")
@@ -564,16 +643,20 @@ def riwayat_transaksi():
                 selesai = datetime.strptime(input("Tanggal selesai (YYYY-MM-DD): ").strip(), "%Y-%m-%d").date()
             except ValueError:
                 print("\n[!] Format tanggal tidak valid. Gunakan YYYY-MM-DD.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
             if mulai > selesai:
                 print("\n[!] Tanggal mulai tidak boleh setelah tanggal selesai.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
             hasil = [(tgl, blok) for tgl, blok in transaksi_terbaca if mulai <= tgl <= selesai]
             label = f"{mulai:%Y-%m-%d} s/d {selesai:%Y-%m-%d}"
         else:
             print("\n[!] Pilihan tidak valid.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
             continue
 
+        bersihkan_layar()
         print(f"\nRIWAYAT TRANSAKSI: {label}")
         print("==========================================================================")
         if not hasil:
@@ -582,7 +665,8 @@ def riwayat_transaksi():
             for _, blok in sorted(hasil, key=lambda data: data[0]):
                 print(f"=== TRANSAKSI ===\n{blok}\n")
         print("==========================================================================")
-        input("Tekan Enter untuk melanjutkan...")
+        tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
 
 def summary_penjualan():
     if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
@@ -636,6 +720,7 @@ def summary_penjualan():
         return
 
     while True:
+        bersihkan_layar()
         print("\n==========================================================================")
         print("                         SUMMARY PENJUALAN & ITEM TERJUAL                 ")
         print("==========================================================================")
@@ -659,13 +744,16 @@ def summary_penjualan():
                 end_date = datetime.strptime(tgl_selesai_str, "%Y-%m-%d")
             except ValueError:
                 print("\n[!] Format tanggal salah! Gunakan format YYYY-MM-DD.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
         else:
             print("\n[!] Pilihan tidak valid.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
             continue
 
         if start_date > end_date:
             print("\n[!] Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
             continue
 
         if start_date.date() == end_date.date():
@@ -703,6 +791,7 @@ def summary_penjualan():
                     akumulasi_barang[nama]["qty"] += item["qty"]
                     akumulasi_barang[nama]["subtotal"] += item["subtotal"]
 
+        bersihkan_layar()
         print("\n==========================================================================")
         print(f"       LAPORAN PENJUALAN: {start_date.strftime('%Y-%m-%d')} s/d {end_date.strftime('%Y-%m-%d')}")
         print("==========================================================================")
@@ -744,7 +833,8 @@ def summary_penjualan():
         print(f"TOTAL LABA FIFO ({laba_count}/{total_trx_count} transaksi bermodal lengkap): {laba_total_fmt}")
         print("* Laba harian belum mencakup transaksi yang belum memiliki catatan modal FIFO.")
         print("==========================================================================")
-        input("\nTekan Enter untuk melanjutkan...")
+        tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
 
 def tambah_barang():
     muat_data()
@@ -754,8 +844,8 @@ def tambah_barang():
         return
     nama_ada = next((nama for nama in data_barang if nama.casefold() == nama_barang.casefold()), None)
     if nama_ada is not None:
-        status = data_barang[nama_ada].get('status', 'aktif')
-        if status == 'aktif':
+        status = data_barang[nama_ada].get("status", "aktif")
+        if status == "aktif":
             print(f"\n[!] Barang '{nama_ada}' sudah ada. Gunakan menu Restok untuk menambah stok.")
         else:
             print(f"\n[!] Barang '{nama_ada}' sudah ada namun berstatus terhapus. Silakan cek Recycle Bin untuk restore atau hapus permanen.")
@@ -854,13 +944,14 @@ def tambah_barang():
         r_file.write(f"[TAMBAH] Barang Baru: {nama_barang} | ID: {id_barang} | Kategori: {kategori_by_id[id_kat]} (ID: {id_kat}) | Jumlah: {jumlah_barang} | Harga jual: Rp{harga_barang:,.0f} | Harga beli/unit: {modal_fmt}\n".replace(",", "."))
     print(f"\n[V] Barang '{nama_barang}' berhasil ditambahkan dengan ID {id_barang}!")
 
+
 def restok_barang():
     muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong. Silakan tambah barang baru.")
         tambah_barang()
         return
-    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
+    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status", "aktif") == "aktif"]
     if not active_items:
         print("\n[!] Tidak ada barang aktif. Silakan tambah barang baru.")
         tambah_barang()
@@ -877,7 +968,7 @@ def restok_barang():
         return
     nama_target = None
     for nama, detail in data_barang.items():
-        if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_input:
+        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
             nama_target = nama
             break
     if nama_target is not None:
@@ -907,12 +998,13 @@ def restok_barang():
     else:
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
+
 def ubah_barang():
     muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong.")
         return
-    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
+    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status", "aktif") == "aktif"]
     if not active_items:
         print("\n[!] Tidak ada barang aktif.")
         return
@@ -924,7 +1016,7 @@ def ubah_barang():
         return
     nama_lama = None
     for nama, detail in data_barang.items():
-        if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_input:
+        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
             nama_lama = nama
             break
     if nama_lama is not None:
@@ -932,7 +1024,7 @@ def ubah_barang():
         if jumlah_stok_batch(detail_lama["id"]) != detail_lama["stok"]:
             print("\n[!] Stok batch FIFO berbeda dari data barang. Periksa batch sebelum mengubah stok.")
             return
-        id_kat_lama = id_ke_kategori(detail_lama['id'])
+        id_kat_lama = id_ke_kategori(detail_lama["id"])
         nama_baru = input(f"Masukkan nama barang baru (kosongkan jika tetap '{nama_lama}'): ").strip()
         if not nama_baru:
             nama_baru = nama_lama
@@ -974,7 +1066,7 @@ def ubah_barang():
             batas_restock = (
                 int(batas_restock_input)
                 if batas_restock_input
-                else detail_lama.get('batas_restock', 5)
+                else detail_lama.get("batas_restock", 5)
             )
         except ValueError:
             print("\n[!] Error: Masukkan input angka yang valid!")
@@ -1023,7 +1115,7 @@ def ubah_barang():
                     data_barang[nama_lama] = detail_lama
                 return
         else:
-            id_barang_baru = detail_lama['id']
+            id_barang_baru = detail_lama["id"]
         perubahan_stok = jumlah_baru - detail_lama["stok"]
         modal_batch_baru = None
         rencana_pengurangan = []
@@ -1071,12 +1163,13 @@ def ubah_barang():
     else:
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
+
 def hapus_barang():
     muat_data()
     if not data_barang:
         print("\n[!] Data barang masih kosong.")
         return
-    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
+    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status", "aktif") == "aktif"]
     if not active_items:
         print("\n[!] Tidak ada barang aktif yang bisa dihapus.")
         return
@@ -1088,11 +1181,11 @@ def hapus_barang():
         return
     nama_target = None
     for nama, detail in data_barang.items():
-        if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_input:
+        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
             nama_target = nama
             break
     if nama_target is not None:
-        data_barang[nama_target]['status'] = 'terhapus'
+        data_barang[nama_target]["status"] = "terhapus"
         simpan_data()
         with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
             r_file.write(f"[HAPUS] {nama_target} (ID: {id_input}) dipindahkan ke Recycle Bin\n")
@@ -1100,9 +1193,10 @@ def hapus_barang():
     else:
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
 
+
 def tampilkan_barang_terhapus():
     muat_data()
-    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
+    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status") == "terhapus"]
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
         return
@@ -1116,9 +1210,10 @@ def tampilkan_barang_terhapus():
         print(f"{detail['id']:<6} {nama:<30} {detail['stok']:<8} {harga_fmt:<12}")
     print("==========================================================================")
 
+
 def restore_barang():
     muat_data()
-    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
+    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status") == "terhapus"]
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
         return
@@ -1130,11 +1225,11 @@ def restore_barang():
         return
     nama_target = None
     for nama, detail in data_barang.items():
-        if detail.get('status') == 'terhapus' and detail['id'] == id_input:
+        if detail.get("status") == "terhapus" and detail["id"] == id_input:
             nama_target = nama
             break
     if nama_target is not None:
-        data_barang[nama_target]['status'] = 'aktif'
+        data_barang[nama_target]["status"] = "aktif"
         simpan_data()
         with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
             r_file.write(f"[RESTORE] {nama_target} (ID: {id_input}) dikembalikan dari Recycle Bin\n")
@@ -1142,9 +1237,10 @@ def restore_barang():
     else:
         print("\n[!] ID barang tidak ditemukan di Recycle Bin.")
 
+
 def hapus_permanen_barang():
     muat_data()
-    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status') == 'terhapus']
+    deleted_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status") == "terhapus"]
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
         return
@@ -1156,12 +1252,12 @@ def hapus_permanen_barang():
         return
     nama_target = None
     for nama, detail in data_barang.items():
-        if detail.get('status') == 'terhapus' and detail['id'] == id_input:
+        if detail.get("status") == "terhapus" and detail["id"] == id_input:
             nama_target = nama
             break
     if nama_target is not None:
         konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen '{nama_target}'? (y/n): ").strip().lower()
-        if konfirmasi == 'y':
+        if konfirmasi == "y":
             id_barang = data_barang[nama_target]["id"]
             del data_barang[nama_target]
             batch_stok[:] = [batch for batch in batch_stok if batch["id_barang"] != id_barang]
@@ -1175,8 +1271,10 @@ def hapus_permanen_barang():
     else:
         print("\n[!] ID barang tidak ditemukan di Recycle Bin.")
 
+
 def menu_recycle_bin():
     while True:
+        bersihkan_layar()
         print("\n==========================================================================")
         print("                               RECYCLE BIN                                ")
         print("==========================================================================")
@@ -1187,15 +1285,23 @@ def menu_recycle_bin():
         print("==========================================================================")
         pilihan = input("Masukkan pilihan (0-3): ").strip()
         if pilihan == "1":
+            bersihkan_layar()
             tampilkan_barang_terhapus()
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "2":
+            bersihkan_layar()
             restore_barang()
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "3":
+            bersihkan_layar()
             hapus_permanen_barang()
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "0":
             break
         else:
             print("\n[!] Pilihan tidak valid.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
 
 def kelola_barcode():
     muat_data()
@@ -1225,6 +1331,7 @@ def kelola_barcode():
     simpan_data()
     print(f"\n[V] Barcode barang '{nama}' berhasil diperbarui.")
 
+
 def tampilkan_tabel_pengguna(users_list, judul="DAFTAR PENGGUNA SISTEM"):
     print("\n==========================================================================")
     print(f"                         {judul}")
@@ -1235,6 +1342,7 @@ def tampilkan_tabel_pengguna(users_list, judul="DAFTAR PENGGUNA SISTEM"):
         u, r, st = item[0], item[2], item[3]
         print(f"{idx:<4} {u:<25} {r:<18} {st:<12}")
     print("==========================================================================")
+
 
 def buka_kunci_admin_only():
     if not os.path.exists(USER_FILE):
@@ -1266,8 +1374,10 @@ def buka_kunci_admin_only():
         f.writelines(baris_data)
     print("\n[V] Mode admin-only berhasil dibuka. Semua role dapat login kembali.")
 
+
 def kelola_pengguna():
     while True:
+        bersihkan_layar()
         kunci_aktif = False
         if os.path.exists(USER_FILE):
             with open(USER_FILE, "r", encoding="utf-8") as f:
@@ -1291,7 +1401,9 @@ def kelola_pengguna():
             break
 
         if pilih == "6" and kunci_aktif:
+            bersihkan_layar()
             buka_kunci_admin_only()
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
             continue
 
         users_list = []
@@ -1305,11 +1417,14 @@ def kelola_pengguna():
                             users_list.append([p[0], p[1], p[2], st])
 
         if pilih == "1":
+            bersihkan_layar()
             if not users_list:
                 print("\n[!] File User.txt belum ada atau masih kosong.")
-                continue
-            tampilkan_tabel_pengguna(users_list, "DAFTAR PENGGUNA SISTEM")
+            else:
+                tampilkan_tabel_pengguna(users_list, "DAFTAR PENGGUNA SISTEM")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilih == "2":
+            bersihkan_layar()
             new_user = input("Masukkan username baru: ").strip()
             new_pass = input("Masukkan password baru: ").strip()
             print("Pilih Role:")
@@ -1325,14 +1440,17 @@ def kelola_pengguna():
                 new_role = "kasir"
             else:
                 print("\n[!] Role tidak valid.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             if not new_user or not new_pass or "," in new_user or "," in new_pass:
                 print("\n[!] Username/password wajib diisi dan tidak boleh mengandung koma.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             if any(u[0].casefold() == new_user.casefold() for u in users_list):
                 print(f"\n[!] Username '{new_user}' sudah terdaftar!")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             users_list.append([new_user, new_pass, new_role, "aktif"])
@@ -1340,9 +1458,12 @@ def kelola_pengguna():
                 for u, p, r, st in users_list:
                     f.write(f"{u},{p},{r},{st}\n")
             print(f"\n[V] Pengguna '{new_user}' berhasil ditambahkan!")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilih == "3":
+            bersihkan_layar()
             if not users_list:
                 print("\n[!] Data pengguna kosong.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
             tampilkan_tabel_pengguna(users_list, "PILIH AKUN UNTUK UBAH STATUS")
             target_user = input("Masukkan username yang ingin dinonaktifkan (Soft Delete) (0 untuk batal): ").strip()
@@ -1350,6 +1471,7 @@ def kelola_pengguna():
                 continue
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menonaktifkan akun yang sedang digunakan saat ini!")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             ditemukan = False
@@ -1361,16 +1483,20 @@ def kelola_pengguna():
 
             if not ditemukan:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
             print(f"\n[V] Pengguna '{target_user}' berhasil diubah statusnya menjadi TIDAK AKTIF.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilih == "4":
+            bersihkan_layar()
             akun_nonaktif = [u for u in users_list if u[3] == "tidak_aktif"]
             if not akun_nonaktif:
                 print("\n[!] Tidak ada akun berstatus TIDAK AKTIF untuk di-restore.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
             tampilkan_tabel_pengguna(akun_nonaktif, "DAFTAR AKUN TIDAK AKTIF (SIAP RESTORE)")
             target_user = input("Masukkan username yang ingin di-restore (diaktifkan kembali) (0 untuk batal): ").strip()
@@ -1386,15 +1512,19 @@ def kelola_pengguna():
 
             if not ditemukan:
                 print(f"\n[!] Akun nonaktif dengan username '{target_user}' tidak ditemukan.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
             print(f"\n[V] Pengguna '{target_user}' berhasil di-restore (AKTIF).")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilih == "5":
+            bersihkan_layar()
             if not users_list:
                 print("\n[!] Data pengguna kosong.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
             tampilkan_tabel_pengguna(users_list, "DAFTAR AKUN (HAPUS PERMANEN)")
             target_user = input("Masukkan username yang ingin dihapus PERMANEN (0 untuk batal): ").strip()
@@ -1402,25 +1532,31 @@ def kelola_pengguna():
                 continue
             if target_user.casefold() == current_user.casefold():
                 print("\n[!] Anda tidak dapat menghapus akun yang sedang digunakan saat ini!")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             target_obj = next((u for u in users_list if u[0].casefold() == target_user.casefold()), None)
             if target_obj is None:
                 print(f"\n[!] Pengguna '{target_user}' tidak ditemukan.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen akun '{target_obj[0]}'? (y/n): ").strip().lower()
-            if konfirmasi != 'y':
+            if konfirmasi != "y":
                 print("\n[!] Penghapusan permanen dibatalkan.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
             users_list = [u for u in users_list if u[0].casefold() != target_user.casefold()]
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, pw, r, st in users_list:
                     f.write(f"{u},{pw},{r},{st}\n")
-                    print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
+            print(f"\n[V] Pengguna '{target_obj[0]}' berhasil dihapus secara permanen.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
         else:
             print("\n[!] Pilihan tidak valid.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
 
 def ganti_password_sendiri():
     print("\n==========================================================================")
@@ -1462,6 +1598,7 @@ def ganti_password_sendiri():
                 f.write(f"{u},{p},{r},{st}\n")
         print("\n[V] Password berhasil diperbarui!")
 
+
 def scanner_barang():
     muat_data()
     print("\n==========================================================================")
@@ -1502,6 +1639,7 @@ def scanner_barang():
             })
         print(f"[V] {nama} ditambahkan. Jumlah di keranjang: {jumlah_di_keranjang + 1}.")
 
+
 def checkout():
     muat_data()
     if not keranjang:
@@ -1510,12 +1648,12 @@ def checkout():
     kebutuhan_fifo = {}
     item_per_id = {}
     for item in keranjang:
-        detail = data_barang.get(item['nama'])
-        if (detail is None or detail.get('status', 'aktif') != 'aktif'
-                or detail['id'] != item['id']):
+        detail = data_barang.get(item["nama"])
+        if (detail is None or detail.get("status", "aktif") != "aktif"
+                or detail["id"] != item["id"]):
             print(f"\n[!] Barang '{item['nama']}' sudah tidak tersedia. Periksa keranjang.")
             return
-        if item['jumlah'] > detail['stok']:
+        if item["jumlah"] > detail["stok"]:
             print(f"\n[!] Stok '{item['nama']}' hanya {detail['stok']}; checkout dibatalkan.")
             return
         id_barang = detail["id"]
@@ -1566,7 +1704,7 @@ def checkout():
     print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Subtotal':<15}")
     print("==========================================================================")
     for item in keranjang:
-        subtotal = item['jumlah'] * item['harga']
+        subtotal = item["jumlah"] * item["harga"]
         total_harga += subtotal
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {subtotal_fmt:<15}")
@@ -1638,7 +1776,7 @@ def checkout():
     log_transaksi += "Rincian modal FIFO:\n"
     log_transaksi += "".join(rincian_modal_fifo)
     for item in keranjang:
-        subtotal = item['jumlah'] * item['harga']
+        subtotal = item["jumlah"] * item["harga"]
         subtotal_fmt = f"Rp{subtotal:,.0f}".replace(",", ".")
         log_transaksi += f"- [{item['id']}] {item['nama']} x{item['jumlah']} = {subtotal_fmt}\n"
 
@@ -1671,16 +1809,18 @@ def checkout():
     print("            Terima kasih telah berbelanja di SMKMART!                    ")
     print("==========================================================================")
 
+
 def cooldown_login(durasi):
     for sisa in range(durasi, 0, -1):
-           print(
-               f"\rTerlalu banyak percobaan. Coba lagi dalam {sisa} detik... \033[K",
-               end="",
-               flush=True,
-           )
-           time.sleep(1)
+        print(
+            f"\rTerlalu banyak percobaan. Coba lagi dalam {sisa} detik... \033[K",
+            end="",
+            flush=True,
+        )
+        time.sleep(1)
 
     print("\rCooldown selesai. Silakan coba login kembali.\033[K")
+
 
 def get_password(prompt="Password: "):
     print(prompt, end="", flush=True)
@@ -1701,6 +1841,251 @@ def get_password(prompt="Password: "):
         else:
             password.append(karakter)
             print("*", end="", flush=True)
+
+
+def lihat_riwayat_gudang():
+    if not os.path.exists(RIWAYAT_GUDANG_FILE) or os.path.getsize(RIWAYAT_GUDANG_FILE) == 0:
+        print("\n[!] Belum ada riwayat gudang.")
+        return
+    print("\n==========================================================================")
+    print("                               RIWAYAT GUDANG                             ")
+    print("==========================================================================")
+    with open(RIWAYAT_GUDANG_FILE, "r", encoding="utf-8") as file:
+        print(file.read().strip())
+    print("==========================================================================")
+
+
+def lihat_keranjang_ui():
+    if not keranjang:
+        print("\n[!] Keranjang belanja masih kosong.")
+        return
+    print("\n==========================================================================")
+    print("                             KERANJANG BELANJA                            ")
+    print("==========================================================================")
+    print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Harga Satuan':<15}")
+    print("==========================================================================")
+    for item in keranjang:
+        harga_fmt = f"Rp{item['harga']:,.0f}".replace(",", ".")
+        print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {harga_fmt:<15}")
+    print("==========================================================================")
+
+
+def hapus_item_keranjang_ui():
+    if not keranjang:
+        print("\n[!] Keranjang belanja kosong, tidak ada yang bisa dihapus.")
+        return
+    lihat_keranjang_ui()
+    try:
+        id_hapus = int(input("Masukkan ID barang yang ingin dihapus dari keranjang: "))
+    except ValueError:
+        print("\n[!] Error: Masukkan angka yang valid!")
+        return
+    target_idx = -1
+    for i, item in enumerate(keranjang):
+        if item["id"] == id_hapus:
+            target_idx = i
+            break
+    if target_idx != -1:
+        item = keranjang[target_idx]
+        item["jumlah"] -= 1
+        if item["jumlah"] == 0:
+            keranjang.pop(target_idx)
+            print(f"\n[V] '{item['nama']}' (ID: {item['id']}) dihapus dari keranjang.")
+        else:
+            print(f"\n[V] Jumlah '{item['nama']}' dikurangi 1. Sisa: {item['jumlah']}.")
+    else:
+        print("\n[!] ID barang tidak ditemukan di keranjang.")
+
+
+def tambah_barang_keranjang_ui():
+    print("\nPilih cara menambahkan barang:")
+    print("1. Masukkan ID barang")
+    print("2. Scan barcode")
+    jenis_pemasukkan = input("Masukkan pilihan (1-2): ").strip()
+
+    if jenis_pemasukkan == "2":
+        bersihkan_layar()
+        scanner_barang()
+        return
+    if jenis_pemasukkan != "1":
+        print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
+        return
+
+    muat_data()
+    active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get("status", "aktif") == "aktif"]
+    if not active_items:
+        print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
+        return
+    tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIBELI")
+    try:
+        id_input = int(input("Masukkan ID barang yang ingin dibeli: "))
+    except ValueError:
+        print("\n[!] Error: Masukkan angka yang valid!")
+        return
+    target_nama = None
+    for nama, detail in data_barang.items():
+        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
+            target_nama = nama
+            break
+    if target_nama is not None:
+        stok_tersedia = data_barang[target_nama]["stok"]
+        harga_satuan = data_barang[target_nama]["harga"]
+        try:
+            jumlah_beli = int(input(f"Masukkan jumlah | {target_nama} | yang ingin dibeli: "))
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            return
+        if jumlah_beli <= 0:
+            print("\n[!] Jumlah pembelian harus lebih dari 0.")
+        elif jumlah_beli <= stok_tersedia:
+            item_keranjang = next(
+                (item for item in keranjang if item["id"] == data_barang[target_nama]["id"]),
+                None,
+            )
+            jumlah_di_keranjang = item_keranjang["jumlah"] if item_keranjang else 0
+            if jumlah_di_keranjang + jumlah_beli > stok_tersedia:
+                print(f"\n[!] Total {target_nama} di keranjang akan melebihi stok ({stok_tersedia}).")
+                return
+            if item_keranjang:
+                item_keranjang["jumlah"] += jumlah_beli
+            else:
+                keranjang.append({
+                    "id": data_barang[target_nama]["id"],
+                    "nama": target_nama,
+                    "jumlah": jumlah_beli,
+                    "harga": harga_satuan
+                })
+            print(f"\n[V] {jumlah_beli} {target_nama} berhasil ditambahkan ke keranjang.")
+        else:
+            print(f"\n[!] Stok {target_nama} tidak mencukupi (Tersisa: {stok_tersedia}).")
+    else:
+        print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
+
+
+def kelola_data_barang_ui():
+    print("\n--- KELOLA DATA BARANG ---")
+    print("1. Tambah Barang")
+    print("2. Ubah Barang")
+    print("3. Hapus Barang")
+    print("4. Recycle Bin (Restore/Hapus Permanen)")
+    print("0. Batal")
+    sub = input("Pilih aksi (0-4): ").strip()
+    bersihkan_layar()
+    if sub == "1":
+        tambah_barang()
+    elif sub == "2":
+        ubah_barang()
+    elif sub == "3":
+        hapus_barang()
+    elif sub == "4":
+        menu_recycle_bin()
+        return
+    elif sub == "0":
+        return
+    else:
+        print("\n[!] Pilihan tidak valid.")
+
+
+def loop_menu_gudang(dari_admin=False):
+    while True:
+        bersihkan_layar()
+        print("\n==========================================================================")
+        print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
+        print("==========================================================================")
+        print("1. Tambah Barang")
+        print("2. Lihat Stok Barang (per Kategori)")
+        print("3. Restok Barang")
+        print("4. Riwayat Gudang")
+        print("5. Ubah Barang")
+        print("6. Hapus Barang")
+        print("7. Cari Barang")
+        print("8. Summary Penjualan")
+        print("9. Recycle Bin")
+        print("10. Kelola Barcode")
+        print("0. Kembali ke Menu Utama Admin" if dari_admin else "0. Kembali ke halaman login")
+        print("==========================================================================")
+
+        pilihan = input("Masukkan pilihan menu (0-10): ").strip()
+
+        if pilihan == "1":
+            jalankan_fitur(tambah_barang)
+        elif pilihan == "2":
+            bersihkan_layar()
+            muat_data()
+            if not data_barang:
+                print("\n[!] Data barang masih kosong.")
+            else:
+                tampilkan_tabel_grouped()
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+        elif pilihan == "3":
+            jalankan_fitur(restok_barang)
+        elif pilihan == "4":
+            jalankan_fitur(lihat_riwayat_gudang)
+        elif pilihan == "5":
+            jalankan_fitur(ubah_barang)
+        elif pilihan == "6":
+            jalankan_fitur(hapus_barang)
+        elif pilihan == "7":
+            jalankan_fitur(cari_barang_linear, data_barang)
+        elif pilihan == "8":
+            summary_penjualan()
+        elif pilihan == "9":
+            bersihkan_layar()
+            menu_recycle_bin()
+        elif pilihan == "10":
+            jalankan_fitur(kelola_barcode)
+        elif pilihan == "0":
+            break
+        else:
+            bersihkan_layar()
+            print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
+
+def loop_menu_kasir(dari_admin=False):
+    while True:
+        bersihkan_layar()
+        print("\n==========================================================================")
+        print("                          SISTEM KASIR SMKMART                            ")
+        print("==========================================================================")
+        print("1. Tambah Barang ke Keranjang")
+        print("2. Lihat Keranjang")
+        print("3. Hapus Barang dari Keranjang")
+        print("4. Checkout")
+        print("5. Riwayat Transaksi")
+        print("6. Cari Barang")
+        print("7. Summary Penjualan")
+        print("8. Barcode Scanner")
+        print("0. Kembali ke Menu Utama Admin" if dari_admin else "0. Kembali ke Halaman Login")
+        print("==========================================================================")
+
+        pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
+
+        if pilihan_kasir == "1":
+            jalankan_fitur(tambah_barang_keranjang_ui)
+        elif pilihan_kasir == "2":
+            jalankan_fitur(lihat_keranjang_ui)
+        elif pilihan_kasir == "3":
+            jalankan_fitur(hapus_item_keranjang_ui)
+        elif pilihan_kasir == "4":
+            jalankan_fitur(checkout)
+        elif pilihan_kasir == "5":
+            riwayat_transaksi()
+        elif pilihan_kasir == "6":
+            jalankan_fitur(cari_barang_linear, data_barang)
+        elif pilihan_kasir == "7":
+            summary_penjualan()
+        elif pilihan_kasir == "8":
+            jalankan_fitur(scanner_barang)
+        elif pilihan_kasir == "0":
+            if keranjang:
+                keranjang.clear()
+            break
+        else:
+            bersihkan_layar()
+            print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
 
 def main():
     global admin_menu, Gudang, kasir, current_user, Kesempatan
@@ -1801,10 +2186,6 @@ def main():
             continue
 
         current_user = username
-        bersihkan_layar()
-        print(f"\n[V] Login berhasil! Selamat datang, {username}")
-        print(f"Peran Anda: {role_login}")
-
         role_clean = role_login.strip().lower()
         is_admin_utama = (role_clean == "admin")
 
@@ -1817,13 +2198,7 @@ def main():
 
         muat_data()
 
-        print("==========================================================================")
-        print("             APLIKASI SISTEM PENGELOLAAN BARANG SMKMART                  ")
-        print("==========================================================================")
-
         while admin_menu:
-            if sys.stdout.isatty():
-                tunggu_sebelum_lanjut()
             bersihkan_layar()
             print("\n==========================================================================")
             print("               MENU ADMIN UTAMA - SMKMART                                 ")
@@ -1844,469 +2219,45 @@ def main():
             pilihan_adm = input("Masukkan pilihan menu (0-10): ").strip()
 
             if pilihan_adm == "1":
+                bersihkan_layar()
                 kelola_pengguna()
             elif pilihan_adm == "2":
-                print("\n--- KELOLA DATA BARANG ---")
-                print("1. Tambah Barang")
-                print("2. Ubah Barang")
-                print("3. Hapus Barang")
-                print("4. Recycle Bin (Restore/Hapus Permanen)")
-                print("0. Batal")
-                sub = input("Pilih aksi (0-4): ").strip()
-                if sub == "1":
-                    tambah_barang()
-                elif sub == "2":
-                    ubah_barang()
-                elif sub == "3":
-                    hapus_barang()
-                elif sub == "4":
-                    menu_recycle_bin()
+                jalankan_fitur(kelola_data_barang_ui)
             elif pilihan_adm == "3":
-                cari_barang_linear(data_barang)
+                jalankan_fitur(cari_barang_linear, data_barang)
             elif pilihan_adm == "4":
+                bersihkan_layar()
                 muat_data()
                 if not data_barang:
                     print("\n[!] Data barang masih kosong.")
-                    continue
-                tampilkan_tabel_grouped()
+                else:
+                    tampilkan_tabel_grouped()
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
             elif pilihan_adm == "5":
                 summary_penjualan()
             elif pilihan_adm == "6":
-                if not os.path.exists(RIWAYAT_GUDANG_FILE) or os.path.getsize(RIWAYAT_GUDANG_FILE) == 0:
-                    print("\n[!] Belum ada laporan stok/aktivitas gudang.")
-                    continue
-                print("\n==========================================================================")
-                print("                       LAPORAN STOK & AKTIVITAS GUDANG                    ")
-                print("==========================================================================")
-                with open(RIWAYAT_GUDANG_FILE, "r", encoding="utf-8") as file:
-                    print(file.read().strip())
-                print("==========================================================================")
+                jalankan_fitur(lihat_riwayat_gudang)
             elif pilihan_adm == "7":
                 riwayat_transaksi()
             elif pilihan_adm == "8":
-                ganti_password_sendiri()
+                jalankan_fitur(ganti_password_sendiri)
             elif pilihan_adm == "9":
-                kasir = True
-
-                while kasir:
-                    if sys.stdout.isatty():
-                        tunggu_sebelum_lanjut()
-                    bersihkan_layar()
-                    print("\n==========================================================================")
-                    print("                          SISTEM KASIR SMKMART                            ")
-                    print("==========================================================================")
-                    print("1. Tambah Barang ke Keranjang")
-                    print("2. Lihat Keranjang")
-                    print("3. Hapus Barang dari Keranjang")
-                    print("4. Checkout")
-                    print("5. Riwayat Transaksi")
-                    print("6. Cari Barang")
-                    print("7. Summary Penjualan")
-                    print("8. Barcode Scanner")
-                    print("0. Kembali ke Menu Utama Admin")
-                    print("==========================================================================")
-
-                    pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
-
-                    if pilihan_kasir == "1":
-                        print("\nPilih cara menambahkan barang:")
-                        print("1. Masukkan ID barang")
-                        print("2. Scan barcode")
-                        jenis_pemasukkan = input("Masukkan pilihan (1-2): ").strip()
-
-                        if jenis_pemasukkan == "2":
-                            scanner_barang()
-                            continue
-                        if jenis_pemasukkan != "1":
-                            print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
-                            continue
-
-                        muat_data()
-                        active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
-                        if not active_items:
-                            print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
-                            continue
-                        tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIBELI")
-                        try:
-                            id_input = int(input("Masukkan ID barang yang ingin dibeli: "))
-                        except ValueError:
-                            print("\n[!] Error: Masukkan angka yang valid!")
-                            continue
-                        target_nama = None
-                        for nama, detail in data_barang.items():
-                            if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_input:
-                                target_nama = nama
-                                break
-                        if target_nama is not None:
-                            stok_tersedia = data_barang[target_nama]["stok"]
-                            harga_satuan = data_barang[target_nama]["harga"]
-                            try:
-                                jumlah_beli = int(input(f"Masukkan jumlah | {target_nama} | yang ingin dibeli: "))
-                            except ValueError:
-                                print("\n[!] Error: Masukkan angka yang valid!")
-                                continue
-                            if jumlah_beli <= 0:
-                                print("\n[!] Jumlah pembelian harus lebih dari 0.")
-                            elif jumlah_beli <= stok_tersedia:
-                                item_keranjang = next(
-                                    (item for item in keranjang if item["id"] == data_barang[target_nama]["id"]),
-                                    None,
-                                )
-                                jumlah_di_keranjang = item_keranjang["jumlah"] if item_keranjang else 0
-                                if jumlah_di_keranjang + jumlah_beli > stok_tersedia:
-                                    print(f"\n[!] Total {target_nama} di keranjang akan melebihi stok ({stok_tersedia}).")
-                                    continue
-                                if item_keranjang:
-                                    item_keranjang["jumlah"] += jumlah_beli
-                                else:
-                                    keranjang.append({
-                                        "id": data_barang[target_nama]["id"],
-                                        "nama": target_nama,
-                                        "jumlah": jumlah_beli,
-                                        "harga": harga_satuan
-                                    })
-                                print(f"\n[V] {jumlah_beli} {target_nama} berhasil ditambahkan ke keranjang.")
-                            else:
-                                print(f"\n[!] Stok {target_nama} tidak mencukupi (Tersisa: {stok_tersedia}).")
-                        else:
-                            print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
-                    elif pilihan_kasir == "2":
-                        if not keranjang:
-                            print("\n[!] Keranjang belanja masih kosong.")
-                            continue
-                        print("\n==========================================================================")
-                        print("                             KERANJANG BELANJA                            ")
-                        print("==========================================================================")
-                        print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Harga Satuan':<15}")
-                        print("==========================================================================")
-                        for item in keranjang:
-                            harga_fmt = f"Rp{item['harga']:,.0f}".replace(",", ".")
-                            print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {harga_fmt:<15}")
-                        print("==========================================================================")
-                    elif pilihan_kasir == "3":
-                        if not keranjang:
-                            print("\n[!] Keranjang belanja kosong, tidak ada yang bisa dihapus.")
-                            continue
-                        print("\n==========================================================================")
-                        print("                             KERANJANG BELANJA                            ")
-                        print("==========================================================================")
-                        print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Harga Satuan':<15}")
-                        print("==========================================================================")
-                        for item in keranjang:
-                            harga_fmt = f"Rp{item['harga']:,.0f}".replace(",", ".")
-                            print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {harga_fmt:<15}")
-                        print("==========================================================================")
-                        try:
-                            id_hapus = int(input("Masukkan ID barang yang ingin dihapus dari keranjang: "))
-                        except ValueError:
-                            print("\n[!] Error: Masukkan angka yang valid!")
-                            continue
-                        target_idx = -1
-                        for i, item in enumerate(keranjang):
-                            if item['id'] == id_hapus:
-                                target_idx = i
-                                break
-                        if target_idx != -1:
-                            item = keranjang[target_idx]
-                            item["jumlah"] -= 1
-                            if item["jumlah"] == 0:
-                                keranjang.pop(target_idx)
-                                print(f"\n[V] '{item['nama']}' (ID: {item['id']}) dihapus dari keranjang.")
-                            else:
-                                print(f"\n[V] Jumlah '{item['nama']}' dikurangi 1. Sisa: {item['jumlah']}.")
-                        else:
-                            print("\n[!] ID barang tidak ditemukan di keranjang.")
-                    elif pilihan_kasir == "4":
-                        checkout()
-                    elif pilihan_kasir == "5":
-                        riwayat_transaksi()
-                    elif pilihan_kasir == "6":
-                        cari_barang_linear(data_barang)
-                    elif pilihan_kasir == "7":
-                        summary_penjualan()
-                    elif pilihan_kasir == "8":
-                        scanner_barang()
-                    elif pilihan_kasir == "0":
-                        print("\nKembali ke Menu Utama Admin...")
-                        if keranjang:
-                            keranjang.clear()
-                            print("[!] Keranjang dikosongkan saat sesi kasir berakhir.")
-                        kasir = False
-                    else:
-                        print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
+                loop_menu_kasir(dari_admin=True)
             elif pilihan_adm == "10":
-                Gudang = True
-                while Gudang:
-                    if sys.stdout.isatty():
-                        tunggu_sebelum_lanjut()
-                    bersihkan_layar()
-                    print("\n==========================================================================")
-                    print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
-                    print("==========================================================================")
-                    print("1. Tambah Barang")
-                    print("2. Lihat Stok Barang (per Kategori)")
-                    print("3. Restok Barang")
-                    print("4. Riwayat Gudang")
-                    print("5. Ubah Barang")
-                    print("6. Hapus Barang")
-                    print("7. Cari Barang")
-                    print("8. Summary Penjualan")
-                    print("9. Recycle Bin")
-                    print("10. Kelola Barcode")
-                    print("0. Kembali ke Menu Utama Admin")
-                    print("==========================================================================")
-
-                    pilihan = input("Masukkan pilihan menu (0-10): ").strip()
-
-                    if pilihan == "1":
-                        tambah_barang()
-                    elif pilihan == "2":
-                        muat_data()
-                        if not data_barang:
-                            print("\n[!] Data barang masih kosong.")
-                            continue
-                        tampilkan_tabel_grouped()
-                    elif pilihan == "3":
-                        restok_barang()
-                    elif pilihan == "4":
-                        if not os.path.exists(RIWAYAT_GUDANG_FILE) or os.path.getsize(RIWAYAT_GUDANG_FILE) == 0:
-                            print("\n[!] Belum ada riwayat gudang.")
-                            continue
-                        print("\n==========================================================================")
-                        print("                               RIWAYAT GUDANG                             ")
-                        print("==========================================================================")
-                        with open(RIWAYAT_GUDANG_FILE, "r", encoding="utf-8") as file:
-                            print(file.read().strip())
-                        print("==========================================================================")
-                    elif pilihan == "5":
-                        ubah_barang()
-                    elif pilihan == "6":
-                        hapus_barang()
-                    elif pilihan == "7":
-                        cari_barang_linear(data_barang)
-                    elif pilihan == "8":
-                        summary_penjualan()
-                    elif pilihan == "9":
-                        menu_recycle_bin()
-                    elif pilihan == "10":
-                        kelola_barcode()
-                    elif pilihan == "0":
-                        print("\nKembali ke Menu Utama Admin...")
-                        Gudang = False
-                    else:
-                        print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
+                loop_menu_gudang(dari_admin=True)
             elif pilihan_adm == "0":
-                print("\nKembali ke halaman login...")
                 admin_menu = False
             else:
+                bersihkan_layar()
                 print("\n[!] Pilihan tidak valid.")
+                tekan_enter_kembali("\nTekan Enter untuk kembali...")
 
-        while Gudang:
-            if sys.stdout.isatty():
-                tunggu_sebelum_lanjut()
-            bersihkan_layar()
-            print("\n==========================================================================")
-            print("               MENU UTAMA SISTEM PENGELOLAAN BARANG SMKMART               ")
-            print("==========================================================================")
-            print("1. Tambah Barang")
-            print("2. Lihat Stok Barang (per Kategori)")
-            print("3. Restok Barang")
-            print("4. Riwayat Gudang")
-            print("5. Ubah Barang")
-            print("6. Hapus Barang")
-            print("7. Cari Barang")
-            print("8. Summary Penjualan")
-            print("9. Recycle Bin")
-            print("10. Kelola Barcode")
-            print("0. Kembali ke halaman login")
-            print("==========================================================================")
+        if Gudang:
+            loop_menu_gudang(dari_admin=False)
 
-            pilihan = input("Masukkan pilihan menu (0-10): ").strip()
+        if kasir:
+            loop_menu_kasir(dari_admin=False)
 
-            if pilihan == "1":
-                tambah_barang()
-            elif pilihan == "2":
-                muat_data()
-                if not data_barang:
-                    print("\n[!] Data barang masih kosong.")
-                    continue
-                tampilkan_tabel_grouped()
-            elif pilihan == "3":
-                restok_barang()
-            elif pilihan == "4":
-                if not os.path.exists(RIWAYAT_GUDANG_FILE) or os.path.getsize(RIWAYAT_GUDANG_FILE) == 0:
-                    print("\n[!] Belum ada riwayat gudang.")
-                    continue
-                print("\n==========================================================================")
-                print("                               RIWAYAT GUDANG                             ")
-                print("==========================================================================")
-                with open(RIWAYAT_GUDANG_FILE, "r", encoding="utf-8") as file:
-                    print(file.read().strip())
-                print("==========================================================================")
-            elif pilihan == "5":
-                ubah_barang()
-            elif pilihan == "6":
-                hapus_barang()
-            elif pilihan == "7":
-                cari_barang_linear(data_barang)
-            elif pilihan == "8":
-                summary_penjualan()
-            elif pilihan == "9":
-                menu_recycle_bin()
-            elif pilihan == "10":
-                kelola_barcode()
-            elif pilihan == "0":
-                print("\nKembali ke halaman login...")
-                Gudang = False
-            else:
-                print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
-
-        while kasir:
-            if sys.stdout.isatty():
-                tunggu_sebelum_lanjut()
-            bersihkan_layar()
-            print("\n==========================================================================")
-            print("                          SISTEM KASIR SMKMART                            ")
-            print("==========================================================================")
-            print("1. Tambah Barang ke Keranjang")
-            print("2. Lihat Keranjang")
-            print("3. Hapus Barang dari Keranjang")
-            print("4. Checkout")
-            print("5. Riwayat Transaksi")
-            print("6. Cari Barang")
-            print("7. Summary Penjualan")
-            print("8. Barcode Scanner")
-            print("0. Kembali ke Halaman Login")
-            print("==========================================================================")
-
-            pilihan_kasir = input("Masukkan pilihan menu (0-8): ").strip()
-
-            if pilihan_kasir == "1":
-                print("\nPilih cara menambahkan barang:")
-                print("1. Masukkan ID barang")
-                print("2. Scan barcode")
-                jenis_pemasukkan = input("Masukkan pilihan (1-2): ").strip()
-
-                if jenis_pemasukkan == "2":
-                    scanner_barang()
-                    continue
-                if jenis_pemasukkan != "1":
-                    print("\n[!] Pilihan tidak valid. Silakan pilih 1 atau 2.")
-                    continue
-
-                muat_data()
-                active_items = [(nama, detail) for nama, detail in data_barang.items() if detail.get('status', 'aktif') == 'aktif']
-                if not active_items:
-                    print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
-                    continue
-                tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIBELI")
-                try:
-                    id_input = int(input("Masukkan ID barang yang ingin dibeli: "))
-                except ValueError:
-                    print("\n[!] Error: Masukkan angka yang valid!")
-                    continue
-                target_nama = None
-                for nama, detail in data_barang.items():
-                    if detail.get('status', 'aktif') == 'aktif' and detail['id'] == id_input:
-                        target_nama = nama
-                        break
-                if target_nama is not None:
-                    stok_tersedia = data_barang[target_nama]["stok"]
-                    harga_satuan = data_barang[target_nama]["harga"]
-                    try:
-                        jumlah_beli = int(input(f"Masukkan jumlah | {target_nama} | yang ingin dibeli: "))
-                    except ValueError:
-                        print("\n[!] Error: Masukkan angka yang valid!")
-                        continue
-                    if jumlah_beli <= 0:
-                        print("\n[!] Jumlah pembelian harus lebih dari 0.")
-                    elif jumlah_beli <= stok_tersedia:
-                        item_keranjang = next(
-                            (item for item in keranjang if item["id"] == data_barang[target_nama]["id"]),
-                            None,
-                        )
-                        jumlah_di_keranjang = item_keranjang["jumlah"] if item_keranjang else 0
-                        if jumlah_di_keranjang + jumlah_beli > stok_tersedia:
-                            print(f"\n[!] Total {target_nama} di keranjang akan melebihi stok ({stok_tersedia}).")
-                            continue
-                        if item_keranjang:
-                            item_keranjang["jumlah"] += jumlah_beli
-                        else:
-                            keranjang.append({
-                                "id": data_barang[target_nama]["id"],
-                                "nama": target_nama,
-                                "jumlah": jumlah_beli,
-                                "harga": harga_satuan
-                            })
-                        print(f"\n[V] {jumlah_beli} {target_nama} berhasil ditambahkan ke keranjang.")
-                    else:
-                        print(f"\n[!] Stok {target_nama} tidak mencukupi (Tersisa: {stok_tersedia}).")
-                else:
-                    print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
-            elif pilihan_kasir == "2":
-                if not keranjang:
-                    print("\n[!] Keranjang belanja masih kosong.")
-                    continue
-                print("\n==========================================================================")
-                print("                             KERANJANG BELANJA                            ")
-                print("==========================================================================")
-                print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Harga Satuan':<15}")
-                print("==========================================================================")
-                for item in keranjang:
-                    harga_fmt = f"Rp{item['harga']:,.0f}".replace(",", ".")
-                    print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {harga_fmt:<15}")
-                print("==========================================================================")
-            elif pilihan_kasir == "3":
-                if not keranjang:
-                    print("\n[!] Keranjang belanja kosong, tidak ada yang bisa dihapus.")
-                    continue
-                print("\n==========================================================================")
-                print("                             KERANJANG BELANJA                            ")
-                print("==========================================================================")
-                print(f"{'ID':<6} {'Nama Barang':<30} {'Jumlah':<8} {'Harga Satuan':<15}")
-                print("==========================================================================")
-                for item in keranjang:
-                    harga_fmt = f"Rp{item['harga']:,.0f}".replace(",", ".")
-                    print(f"{item['id']:<6} {item['nama']:<30} {item['jumlah']:<8} {harga_fmt:<15}")
-                print("==========================================================================")
-                try:
-                    id_hapus = int(input("Masukkan ID barang yang ingin dihapus dari keranjang: "))
-                except ValueError:
-                    print("\n[!] Error: Masukkan angka yang valid!")
-                    continue
-                target_idx = -1
-                for i, item in enumerate(keranjang):
-                    if item['id'] == id_hapus:
-                        target_idx = i
-                        break
-                if target_idx != -1:
-                    item = keranjang[target_idx]
-                    item["jumlah"] -= 1
-                    if item["jumlah"] == 0:
-                        keranjang.pop(target_idx)
-                        print(f"\n[V] '{item['nama']}' (ID: {item['id']}) dihapus dari keranjang.")
-                    else:
-                        print(f"\n[V] Jumlah '{item['nama']}' dikurangi 1. Sisa: {item['jumlah']}.")
-                else:
-                    print("\n[!] ID barang tidak ditemukan di keranjang.")
-            elif pilihan_kasir == "4":
-                checkout()
-            elif pilihan_kasir == "5":
-                riwayat_transaksi()
-            elif pilihan_kasir == "6":
-                cari_barang_linear(data_barang)
-            elif pilihan_kasir == "7":
-                summary_penjualan()
-            elif pilihan_kasir == "8":
-                scanner_barang()
-            elif pilihan_kasir == "0":
-                print("\nKembali ke halaman login...")
-                if keranjang:
-                    keranjang.clear()
-                    print("[!] Keranjang dikosongkan saat sesi kasir berakhir.")
-                kasir = False
-            else:
-                print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
 
 if __name__ == "__main__":
     main()
