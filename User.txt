@@ -1,5 +1,5 @@
-Kunci=0
 Xavier,Kasir,Kasir,aktif
 Rifgi,989,Admin,aktif
 Cleosa,Admin,Kasir,aktif
 fadil,656,admin gudang,aktif
+red,090,kasir,aktif
