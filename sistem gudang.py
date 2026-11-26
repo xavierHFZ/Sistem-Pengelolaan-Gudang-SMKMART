@@ -962,47 +962,59 @@ def restok_barang():
         print("\n[!] Tidak ada barang aktif. Silakan tambah barang baru.")
         tambah_barang()
         return
-    tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK RESTOK")
-    print("0. Tambah Barang Baru")
-    try:
-        id_input = int(input("\nMasukkan ID barang yang ingin di-restock (0 untuk tambah baru): "))
-    except ValueError:
-        print("\n[!] Error: Masukkan angka yang valid!")
-        return
-    if id_input == 0:
-        tambah_barang()
-        return
+
     nama_target = None
-    for nama, detail in data_barang.items():
-        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
-            nama_target = nama
-            break
-    if nama_target is not None:
-        detail = data_barang[nama_target]
-        if jumlah_stok_batch(detail["id"]) != detail["stok"]:
-            print("\n[!] Stok batch FIFO berbeda dari stok barang; restok dibatalkan.")
+    while True:
+        bersihkan_layar()
+        tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK RESTOK")
+        print("0. Tambah Barang Baru | b. Batal")
+        id_raw = input("\nMasukkan ID barang yang ingin di-restock (0 untuk tambah baru, b untuk batal): ").strip()
+        if id_raw.lower() == "b":
+            return
+        if id_raw == "0":
+            tambah_barang()
             return
         try:
-            jumlah_restock = int(input(f"Masukkan jumlah stok tambahan untuk '{nama_target}': "))
-            if jumlah_restock <= 0:
-                print("\n[!] Jumlah restock harus lebih dari 0.")
-                return
-            harga_modal = int(input("Masukkan harga beli/modal per unit untuk restok ini (angka tanpa titik): ").strip())
-            if harga_modal < 0:
-                print("\n[!] Harga beli tidak boleh negatif.")
-                return
-            tambah_batch_stok(detail["id"], jumlah_restock, harga_modal)
-            detail["hargaBeli"] = harga_modal
-            detail["stok"] = jumlah_stok_batch(detail["id"])
-            simpan_batch_stok()
-            simpan_data()
-            with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-                r_file.write(f"[RESTOK FIFO] {nama_target} +{jumlah_restock} @ Rp{harga_modal:,} (Total Stok: {detail['stok']})\n".replace(",", "."))
-            print(f"\n[V] Restock berhasil! Stok {nama_target} sekarang: {data_barang[nama_target]['stok']}")
+            id_input = int(id_raw)
         except ValueError:
             print("\n[!] Error: Masukkan angka yang valid!")
-    else:
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        for nama, detail in data_barang.items():
+            if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
+                nama_target = nama
+                break
+
+        if nama_target is not None:
+            break
+
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+
+    detail = data_barang[nama_target]
+    if jumlah_stok_batch(detail["id"]) != detail["stok"]:
+        print("\n[!] Stok batch FIFO berbeda dari stok barang; restok dibatalkan.")
+        return
+    try:
+        jumlah_restock = int(input(f"Masukkan jumlah stok tambahan untuk '{nama_target}': "))
+        if jumlah_restock <= 0:
+            print("\n[!] Jumlah restock harus lebih dari 0.")
+            return
+        harga_modal = int(input("Masukkan harga beli/modal per unit untuk restok ini (angka tanpa titik): ").strip())
+        if harga_modal < 0:
+            print("\n[!] Harga beli tidak boleh negatif.")
+            return
+        tambah_batch_stok(detail["id"], jumlah_restock, harga_modal)
+        detail["hargaBeli"] = harga_modal
+        detail["stok"] = jumlah_stok_batch(detail["id"])
+        simpan_batch_stok()
+        simpan_data()
+        with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
+            r_file.write(f"[RESTOK FIFO] {nama_target} +{jumlah_restock} @ Rp{harga_modal:,} (Total Stok: {detail['stok']})\n".replace(",", "."))
+        print(f"\n[V] Restock berhasil! Stok {nama_target} sekarang: {data_barang[nama_target]['stok']}")
+    except ValueError:
+        print("\n[!] Error: Masukkan angka yang valid!")
 
 
 def ubah_barang():
@@ -1192,25 +1204,37 @@ def hapus_barang():
     if not active_items:
         print("\n[!] Tidak ada barang aktif yang bisa dihapus.")
         return
-    tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIHAPUS")
-    try:
-        id_input = int(input("\nMasukkan ID barang yang ingin dihapus: "))
-    except ValueError:
-        print("\n[!] Error: Masukkan angka yang valid!")
-        return
-    nama_target = None
-    for nama, detail in data_barang.items():
-        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
-            nama_target = nama
-            break
-    if nama_target is not None:
-        data_barang[nama_target]["status"] = "terhapus"
-        simpan_data()
-        with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-            r_file.write(f"[HAPUS] {nama_target} (ID: {id_input}) dipindahkan ke Recycle Bin\n")
-        print(f"\n[V] Barang '{nama_target}' berhasil dipindahkan ke Recycle Bin.")
-    else:
+
+    while True:
+        bersihkan_layar()
+        tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIHAPUS")
+        print("0. Batal")
+        id_raw = input("\nMasukkan ID barang yang ingin dihapus: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_input = int(id_raw)
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        nama_target = None
+        for nama, detail in data_barang.items():
+            if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
+                nama_target = nama
+                break
+
+        if nama_target is not None:
+            data_barang[nama_target]["status"] = "terhapus"
+            simpan_data()
+            with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
+                r_file.write(f"[HAPUS] {nama_target} (ID: {id_input}) dipindahkan ke Recycle Bin\n")
+            print(f"\n[V] Barang '{nama_target}' berhasil dipindahkan ke Recycle Bin.")
+            return
+
         print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
 
 
 def tampilkan_barang_terhapus():
@@ -1236,25 +1260,37 @@ def restore_barang():
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
         return
-    tampilkan_barang_terhapus()
-    try:
-        id_input = int(input("\nMasukkan ID barang yang ingin di-restore: "))
-    except ValueError:
-        print("\n[!] Error: Masukkan angka yang valid!")
-        return
-    nama_target = None
-    for nama, detail in data_barang.items():
-        if detail.get("status") == "terhapus" and detail["id"] == id_input:
-            nama_target = nama
-            break
-    if nama_target is not None:
-        data_barang[nama_target]["status"] = "aktif"
-        simpan_data()
-        with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-            r_file.write(f"[RESTORE] {nama_target} (ID: {id_input}) dikembalikan dari Recycle Bin\n")
-        print(f"\n[V] Barang '{nama_target}' berhasil di-restore.")
-    else:
+
+    while True:
+        bersihkan_layar()
+        tampilkan_barang_terhapus()
+        print("0. Batal")
+        id_raw = input("\nMasukkan ID barang yang ingin di-restore: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_input = int(id_raw)
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        nama_target = None
+        for nama, detail in data_barang.items():
+            if detail.get("status") == "terhapus" and detail["id"] == id_input:
+                nama_target = nama
+                break
+
+        if nama_target is not None:
+            data_barang[nama_target]["status"] = "aktif"
+            simpan_data()
+            with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
+                r_file.write(f"[RESTORE] {nama_target} (ID: {id_input}) dikembalikan dari Recycle Bin\n")
+            print(f"\n[V] Barang '{nama_target}' berhasil di-restore.")
+            return
+
         print("\n[!] ID barang tidak ditemukan di Recycle Bin.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
 
 
 def hapus_permanen_barang():
@@ -1263,32 +1299,44 @@ def hapus_permanen_barang():
     if not deleted_items:
         print("\n[!] Tidak ada barang di Recycle Bin.")
         return
-    tampilkan_barang_terhapus()
-    try:
-        id_input = int(input("\nMasukkan ID barang yang ingin dihapus permanen: "))
-    except ValueError:
-        print("\n[!] Error: Masukkan angka yang valid!")
-        return
-    nama_target = None
-    for nama, detail in data_barang.items():
-        if detail.get("status") == "terhapus" and detail["id"] == id_input:
-            nama_target = nama
-            break
-    if nama_target is not None:
-        konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen '{nama_target}'? (y/n): ").strip().lower()
-        if konfirmasi == "y":
-            id_barang = data_barang[nama_target]["id"]
-            del data_barang[nama_target]
-            batch_stok[:] = [batch for batch in batch_stok if batch["id_barang"] != id_barang]
-            simpan_batch_stok()
-            simpan_data()
-            with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
-                r_file.write(f"[HAPUS PERMANEN] {nama_target} (ID: {id_input}) dihapus permanen\n")
-            print(f"\n[V] Barang '{nama_target}' berhasil dihapus permanen.")
-        else:
-            print("\n[!] Penghapusan permanen dibatalkan.")
-    else:
+
+    while True:
+        bersihkan_layar()
+        tampilkan_barang_terhapus()
+        print("0. Batal")
+        id_raw = input("\nMasukkan ID barang yang ingin dihapus permanen: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_input = int(id_raw)
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        nama_target = None
+        for nama, detail in data_barang.items():
+            if detail.get("status") == "terhapus" and detail["id"] == id_input:
+                nama_target = nama
+                break
+
+        if nama_target is not None:
+            konfirmasi = input(f"Apakah Anda yakin ingin menghapus permanen '{nama_target}'? (y/n): ").strip().lower()
+            if konfirmasi == "y":
+                id_barang = data_barang[nama_target]["id"]
+                del data_barang[nama_target]
+                batch_stok[:] = [batch for batch in batch_stok if batch["id_barang"] != id_barang]
+                simpan_batch_stok()
+                simpan_data()
+                with open(RIWAYAT_GUDANG_FILE, "a", encoding="utf-8") as r_file:
+                    r_file.write(f"[HAPUS PERMANEN] {nama_target} (ID: {id_input}) dihapus permanen\n")
+                print(f"\n[V] Barang '{nama_target}' berhasil dihapus permanen.")
+            else:
+                print("\n[!] Penghapusan permanen dibatalkan.")
+            return
+
         print("\n[!] ID barang tidak ditemukan di Recycle Bin.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
 
 
 def menu_recycle_bin():
@@ -1308,11 +1356,9 @@ def menu_recycle_bin():
             tampilkan_barang_terhapus()
             tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "2":
-            bersihkan_layar()
             restore_barang()
             tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "3":
-            bersihkan_layar()
             hapus_permanen_barang()
             tekan_enter_kembali("\nTekan Enter untuk kembali...")
         elif pilihan == "0":
@@ -1329,18 +1375,36 @@ def kelola_barcode():
     if not barang_aktif:
         print("\n[!] Belum ada barang aktif untuk dikelola.")
         return
-    print("\nDAFTAR BARANG DAN BARCODE")
-    for nama, detail in sorted(barang_aktif, key=lambda item: item[1]["id"]):
-        print(f"ID {detail['id']}: {nama} | Barcode: {detail.get('barcode') or '(belum diatur)'}")
-    try:
-        id_barang = int(input("Masukkan ID barang: ").strip())
-    except ValueError:
-        print("\n[!] ID harus berupa angka.")
-        return
-    target = next(((nama, detail) for nama, detail in barang_aktif if detail["id"] == id_barang), None)
-    if target is None:
+
+    while True:
+        bersihkan_layar()
+        muat_data()
+        barang_aktif = [(nama, detail) for nama, detail in data_barang.items()
+                        if detail.get("status", "aktif") == "aktif"]
+        if not barang_aktif:
+            print("\n[!] Belum ada barang aktif untuk dikelola.")
+            return
+        print("\nDAFTAR BARANG DAN BARCODE")
+        for nama, detail in sorted(barang_aktif, key=lambda item: item[1]["id"]):
+            print(f"ID {detail['id']}: {nama} | Barcode: {detail.get('barcode') or '(belum diatur)'}")
+        print("0. Batal")
+        id_raw = input("Masukkan ID barang: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_barang = int(id_raw)
+        except ValueError:
+            print("\n[!] ID harus berupa angka.")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        target = next(((nama, detail) for nama, detail in barang_aktif if detail["id"] == id_barang), None)
+        if target is not None:
+            break
+
         print("\n[!] Barang aktif dengan ID tersebut tidak ditemukan.")
-        return
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+
     nama, detail = target
     barcode = input("Barcode baru (ketik 0 untuk menghapus barcode): ").strip() or "0"
     if barcode_sudah_dipakai(barcode, kecuali_id=id_barang):
@@ -1893,27 +1957,39 @@ def hapus_item_keranjang_ui():
     if not keranjang:
         print("\n[!] Keranjang belanja kosong, tidak ada yang bisa dihapus.")
         return
-    lihat_keranjang_ui()
-    try:
-        id_hapus = int(input("Masukkan ID barang yang ingin dihapus dari keranjang: "))
-    except ValueError:
-        print("\n[!] Error: Masukkan angka yang valid!")
-        return
-    target_idx = -1
-    for i, item in enumerate(keranjang):
-        if item["id"] == id_hapus:
-            target_idx = i
-            break
-    if target_idx != -1:
-        item = keranjang[target_idx]
-        item["jumlah"] -= 1
-        if item["jumlah"] == 0:
-            keranjang.pop(target_idx)
-            print(f"\n[V] '{item['nama']}' (ID: {item['id']}) dihapus dari keranjang.")
-        else:
-            print(f"\n[V] Jumlah '{item['nama']}' dikurangi 1. Sisa: {item['jumlah']}.")
-    else:
+
+    while True:
+        bersihkan_layar()
+        lihat_keranjang_ui()
+        print("0. Batal")
+        id_raw = input("Masukkan ID barang yang ingin dihapus dari keranjang: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_hapus = int(id_raw)
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        target_idx = -1
+        for i, item in enumerate(keranjang):
+            if item["id"] == id_hapus:
+                target_idx = i
+                break
+
+        if target_idx != -1:
+            item = keranjang[target_idx]
+            item["jumlah"] -= 1
+            if item["jumlah"] == 0:
+                keranjang.pop(target_idx)
+                print(f"\n[V] '{item['nama']}' (ID: {item['id']}) dihapus dari keranjang.")
+            else:
+                print(f"\n[V] Jumlah '{item['nama']}' dikurangi 1. Sisa: {item['jumlah']}.")
+            return
+
         print("\n[!] ID barang tidak ditemukan di keranjang.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
 
 
 def tambah_barang_keranjang_ui():
@@ -1935,50 +2011,63 @@ def tambah_barang_keranjang_ui():
     if not active_items:
         print("\n[!] Tidak ada barang aktif yang bisa dibeli.")
         return
-    tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIBELI")
+
+    target_nama = None
+    while True:
+        bersihkan_layar()
+        tampilkan_tabel_grouped(judul="PILIH BARANG UNTUK DIBELI")
+        print("0. Batal")
+        id_raw = input("Masukkan ID barang yang ingin dibeli: ").strip()
+        if id_raw == "0":
+            return
+        try:
+            id_input = int(id_raw)
+        except ValueError:
+            print("\n[!] Error: Masukkan angka yang valid!")
+            tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+            continue
+
+        for nama, detail in data_barang.items():
+            if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
+                target_nama = nama
+                break
+
+        if target_nama is not None:
+            break
+
+        print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
+        tekan_enter_kembali("\nTekan Enter untuk coba lagi...")
+
+    stok_tersedia = data_barang[target_nama]["stok"]
+    harga_satuan = data_barang[target_nama]["harga"]
     try:
-        id_input = int(input("Masukkan ID barang yang ingin dibeli: "))
+        jumlah_beli = int(input(f"Masukkan jumlah | {target_nama} | yang ingin dibeli: "))
     except ValueError:
         print("\n[!] Error: Masukkan angka yang valid!")
         return
-    target_nama = None
-    for nama, detail in data_barang.items():
-        if detail.get("status", "aktif") == "aktif" and detail["id"] == id_input:
-            target_nama = nama
-            break
-    if target_nama is not None:
-        stok_tersedia = data_barang[target_nama]["stok"]
-        harga_satuan = data_barang[target_nama]["harga"]
-        try:
-            jumlah_beli = int(input(f"Masukkan jumlah | {target_nama} | yang ingin dibeli: "))
-        except ValueError:
-            print("\n[!] Error: Masukkan angka yang valid!")
+    if jumlah_beli <= 0:
+        print("\n[!] Jumlah pembelian harus lebih dari 0.")
+    elif jumlah_beli <= stok_tersedia:
+        item_keranjang = next(
+            (item for item in keranjang if item["id"] == data_barang[target_nama]["id"]),
+            None,
+        )
+        jumlah_di_keranjang = item_keranjang["jumlah"] if item_keranjang else 0
+        if jumlah_di_keranjang + jumlah_beli > stok_tersedia:
+            print(f"\n[!] Total {target_nama} di keranjang akan melebihi stok ({stok_tersedia}).")
             return
-        if jumlah_beli <= 0:
-            print("\n[!] Jumlah pembelian harus lebih dari 0.")
-        elif jumlah_beli <= stok_tersedia:
-            item_keranjang = next(
-                (item for item in keranjang if item["id"] == data_barang[target_nama]["id"]),
-                None,
-            )
-            jumlah_di_keranjang = item_keranjang["jumlah"] if item_keranjang else 0
-            if jumlah_di_keranjang + jumlah_beli > stok_tersedia:
-                print(f"\n[!] Total {target_nama} di keranjang akan melebihi stok ({stok_tersedia}).")
-                return
-            if item_keranjang:
-                item_keranjang["jumlah"] += jumlah_beli
-            else:
-                keranjang.append({
-                    "id": data_barang[target_nama]["id"],
-                    "nama": target_nama,
-                    "jumlah": jumlah_beli,
-                    "harga": harga_satuan
-                })
-            print(f"\n[V] {jumlah_beli} {target_nama} berhasil ditambahkan ke keranjang.")
+        if item_keranjang:
+            item_keranjang["jumlah"] += jumlah_beli
         else:
-            print(f"\n[!] Stok {target_nama} tidak mencukupi (Tersisa: {stok_tersedia}).")
+            keranjang.append({
+                "id": data_barang[target_nama]["id"],
+                "nama": target_nama,
+                "jumlah": jumlah_beli,
+                "harga": harga_satuan
+            })
+        print(f"\n[V] {jumlah_beli} {target_nama} berhasil ditambahkan ke keranjang.")
     else:
-        print("\n[!] ID barang tidak ditemukan atau barang sudah terhapus.")
+        print(f"\n[!] Stok {target_nama} tidak mencukupi (Tersisa: {stok_tersedia}).")
 
 
 def kelola_data_barang_ui():
