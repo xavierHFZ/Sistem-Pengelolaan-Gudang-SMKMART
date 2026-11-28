@@ -6,13 +6,19 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 
 ### Admin
 - Menambah, melihat, mencari, mengubah, dan menghapus barang.
-- Mengelola kategori serta menambah stok barang.
+- Mengelola pengguna dan kategori.
+- Melihat peringatan ketika stok barang di bawah batas restock yang ditetapkan.
+- Menghitung modal penjualan memakai FIFO dari batch stok.
+- Melihat ringkasan penjualan dan laporan stok.
+- Mengekspor daftar stok dan laporan penjualan ke berkas Excel (`.xlsx`) lengkap dengan tabel dan pie chart.
+
+### Gudang
+- Menambah, melihat, mencari, mengubah, dan menghapus barang.
+- Menambah stok barang dengan mencatat modal per unit untuk batch FIFO.
 - Saat menambah barang, memilih **Pakai barcode** atau **Tanpa barcode**. Saat mengubah barang, dapat memasukkan barcode baru, mempertahankan barcode, atau menghapusnya.
 - Mendaftarkan dan mengelola barcode produk melalui menu **Kelola Barcode**.
-- Menghitung modal penjualan memakai FIFO dari batch stok.
 - Melihat riwayat perubahan gudang dan ringkasan penjualan.
 - Memulihkan barang dari Recycle Bin atau menghapusnya secara permanen.
-- Melihat peringatan ketika stok barang di bawah batas restock yang ditetapkan.
 - Mengekspor daftar stok dan laporan penjualan ke berkas Excel (`.xlsx`) lengkap dengan tabel dan pie chart.
 
 ### Kasir
