@@ -1,6 +1,9 @@
+import hashlib
+import hmac
 import msvcrt
 import os
 import re
+import secrets
 import sys
 import time
 from datetime import datetime
@@ -23,6 +26,25 @@ kategori_by_name = {}
 next_kategori_id = 1
 current_user = ""
 
+
+def hash_password(password, salt=None):
+    """Simpan password sebagai hash PBKDF2 (hash satu arah, bukan enkripsi)."""
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), 310_000)
+    return f"pbkdf2_sha256${salt}${digest.hex()}"
+
+
+def verifikasi_password(password, tersimpan):
+    if tersimpan.startswith("pbkdf2_sha256$"):
+        try:
+            _, salt, digest = tersimpan.split("$", 2)
+            kandidat = hash_password(password, salt).rsplit("$", 1)[1]
+            return hmac.compare_digest(kandidat, digest)
+        except (ValueError, TypeError):
+            return False
+    # Kompatibilitas sementara untuk akun lama yang masih plaintext.
+    return hmac.compare_digest(password, tersimpan)
+
 admin_menu = False
 Gudang = False
 kasir = False
@@ -31,8 +53,6 @@ Kesempatan = 0
 
 
 def bersihkan_layar():
-    # Jangan jalankan cls/clear jika output bukan terminal interaktif; pada
-    # sebagian terminal IDE perintah tersebut dapat menghapus notifikasi.
     if not sys.stdout.isatty():
         print("\n" * 2)
         return
@@ -1521,7 +1541,7 @@ def kelola_pengguna():
                 tekan_enter_kembali("\nTekan Enter untuk kembali...")
                 continue
 
-            users_list.append([new_user, new_pass, new_role, "aktif"])
+            users_list.append([new_user, hash_password(new_pass), new_role, "aktif"])
             with open(USER_FILE, "w", encoding="utf-8") as f:
                 for u, p, r, st in users_list:
                     f.write(f"{u},{p},{r},{st}\n")
@@ -1653,7 +1673,7 @@ def ganti_password_sendiri():
                         st = parts[3] if len(parts) > 3 else "aktif"
                         if u == current_user:
                             if p == pass_lama:
-                                p = pass_baru
+                                p = hash_password(pass_baru)
                                 berhasil = True
                             else:
                                 print("\n[!] Password lama salah!")
@@ -2202,7 +2222,17 @@ def main():
                 user, pwd, role = parts[0], parts[1], parts[2]
                 status = parts[3].lower() if len(parts) > 3 else "aktif"
 
-                if user == username and pwd == password:
+                password_valid = verifikasi_password(password, pwd)
+                if user == username and password_valid:
+                    # Migrasi otomatis akun lama ke hash setelah login yang berhasil.
+                    if not pwd.startswith("pbkdf2_sha256$"):
+                        user_lines = [
+                            f"{user},{hash_password(password)},{role},{status}\n" if row is line
+                            else row
+                            for row in user_lines
+                        ]
+                        with open(USER_FILE, "w", encoding="utf-8") as f:
+                            f.writelines(user_lines)
                     if status == "tidak_aktif":
                         akun_nonaktif = True
                     elif kunci == 1 and role.strip().lower() != "admin":
@@ -2224,7 +2254,6 @@ def main():
             elif Kesempatan == 2 or Kesempatan == 5:
                 tampilkan_peringatan_login("[!] Username atau password salah!")
                 Kesempatan += 1
-                print("Terlalu banyak percobaan. Cooldown dimulai.")
                 cooldown_login(30)
             elif Kesempatan >= 8:
                 tampilkan_peringatan_login(
