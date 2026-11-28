@@ -34,7 +34,7 @@ rem ---------------------------------------------------------------
 if exist "%VENV_PY%" (
     "%VENV_PY%" -c "import sys" >nul 2>nul
     if errorlevel 1 (
-        echo [!] Virtual environment lama rusak. Membuat ulang...
+        echo [X] Virtual environment lama rusak. Membuat ulang...
         rmdir /s /q ".venv" >nul 2>nul
     )
 )
@@ -43,7 +43,7 @@ if not exist "%VENV_PY%" (
     echo [1/5] Membuat virtual environment .venv ...
     "%PY_EXE%" -m venv ".venv"
     if errorlevel 1 (
-        echo [!] Gagal membuat virtual environment.
+        echo [X] Gagal membuat virtual environment.
         echo     Gunakan Python dari https://www.python.org/downloads/windows/
         goto :selesai_gagal
     )
@@ -64,7 +64,7 @@ rem ---------------------------------------------------------------
 echo [3/5] Memperbarui requirements.txt dari import di kode ...
 "%VENV_PY%" update_requirements.py
 if errorlevel 1 (
-    echo [!] Gagal memperbarui requirements.txt.
+    echo [X] Gagal memperbarui requirements.txt.
     goto :selesai_gagal
 )
 
@@ -75,11 +75,11 @@ rem ---------------------------------------------------------------
 echo [4/5] Memeriksa dan memasang dependensi ...
 "%VENV_PY%" -m pip install --disable-pip-version-check --no-input -r requirements.txt
 if errorlevel 1 (
-    echo [!] Pemasangan gagal. Memperbarui pip lalu mengulang ...
+    echo [X] Pemasangan gagal. Memperbarui pip lalu mengulang ...
     "%VENV_PY%" -m pip install --disable-pip-version-check --no-input --upgrade pip
     "%VENV_PY%" -m pip install --disable-pip-version-check --no-input -r requirements.txt
     if errorlevel 1 (
-        echo [!] Dependensi tetap gagal dipasang. Periksa koneksi internet.
+        echo [X] Dependensi tetap gagal dipasang. Periksa koneksi internet.
         goto :selesai_gagal
     )
 )
@@ -91,7 +91,7 @@ echo [5/5] Memverifikasi lingkungan ...
 "%VENV_PY%" cek_lingkungan.py
 if errorlevel 1 (
     echo.
-    echo [!] Verifikasi menemukan masalah. Perbaiki sesuai saran di atas.
+    echo [X] Verifikasi menemukan masalah. Perbaiki sesuai saran di atas.
     goto :selesai_gagal
 )
 
@@ -111,7 +111,7 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-echo [!] pip belum ada di .venv. Memasang lewat ensurepip ...
+echo [X] pip belum ada di .venv. Memasang lewat ensurepip ...
 "%VENV_PY%" -m ensurepip --upgrade >nul 2>nul
 "%VENV_PY%" -m pip --version >nul 2>nul
 if not errorlevel 1 (
@@ -123,20 +123,20 @@ echo [i] ensurepip tidak tersedia. Mengunduh get-pip.py ...
 set "GET_PIP=%TEMP%\smkmart-get-pip.py"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -UseBasicParsing 'https://bootstrap.pypa.io/get-pip.py' -OutFile '%GET_PIP%' } catch { exit 1 }"
 if errorlevel 1 (
-    echo [!] Gagal mengunduh get-pip.py. Periksa koneksi internet.
+    echo [X] Gagal mengunduh get-pip.py. Periksa koneksi internet.
     exit /b 1
 )
 "%VENV_PY%" "%GET_PIP%" --no-warn-script-location
 set "HASIL_PIP=%ERRORLEVEL%"
 del "%GET_PIP%" >nul 2>nul
 if not "%HASIL_PIP%"=="0" (
-    echo [!] Gagal memasang pip lewat get-pip.py.
+    echo [X] Gagal memasang pip lewat get-pip.py.
     exit /b 1
 )
 
 "%VENV_PY%" -m pip --version >nul 2>nul
 if errorlevel 1 (
-    echo [!] pip masih belum bisa dijalankan.
+    echo [X] pip masih belum bisa dijalankan.
     exit /b 1
 )
 echo [V] pip berhasil dipasang lewat get-pip.py.
@@ -148,7 +148,7 @@ rem =====================================================================
 :tawarkan_pasang_python
 if defined PY_EXE exit /b 0
 echo.
-echo [!] Python 3 belum terdeteksi di komputer ini.
+echo [X] Python 3 belum terdeteksi di komputer ini.
 if "%AUTO%"=="1" (
     echo     Mode otomatis tidak memasang Python tanpa persetujuan.
     echo     Jalankan setup.bat secara manual lalu pilih Y.
@@ -184,7 +184,7 @@ echo [i] Mengunduh installer resmi dari python.org ...
 set "INSTALLER=%TEMP%\smkmart-python-installer.exe"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -UseBasicParsing 'https://www.python.org/ftp/python/3.13.5/python-3.13.5-amd64.exe' -OutFile '%INSTALLER%' } catch { exit 1 }"
 if errorlevel 1 (
-    echo [!] Gagal mengunduh installer Python.
+    echo [X] Gagal mengunduh installer Python.
     exit /b 1
 )
 echo [i] Memasang Python untuk pengguna saat ini (tanpa admin) ...
@@ -194,14 +194,14 @@ call :cari_python
 if defined PY_EXE (
     echo [V] Python berhasil dipasang.
 ) else (
-    echo [!] Pemasangan selesai tetapi Python belum terdeteksi.
+    echo [X] Pemasangan selesai tetapi Python belum terdeteksi.
     echo     Tutup jendela ini, buka lagi, lalu jalankan setup.bat.
 )
 exit /b 0
 
 :petunjuk_python
 echo.
-echo [!] Python 3 belum tersedia sehingga setup tidak bisa dilanjutkan.
+echo [X] Python 3 belum tersedia sehingga setup tidak bisa dilanjutkan.
 echo.
 echo     Pilihan:
 echo     1. Jalankan setup.bat lagi lalu jawab Y saat ditawari pemasangan otomatis.
@@ -215,7 +215,7 @@ goto :selesai_gagal
 
 :selesai_gagal
 echo.
-echo [!] Setup belum berhasil.
+echo [X] Setup belum berhasil.
 if "%AUTO%"=="0" pause
 exit /b 1
 

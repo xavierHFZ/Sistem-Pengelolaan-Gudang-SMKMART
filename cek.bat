@@ -35,7 +35,7 @@ if not "!KODE!"=="0" (
 
 echo.
 if not "!KODE!"=="0" (
-    echo [!] Lingkungan belum siap. Jalankan setup.bat secara manual.
+    echo [X] Lingkungan belum siap. Jalankan setup.bat secara manual.
 ) else (
     echo [V] Lingkungan siap. Jalankan run.bat untuk membuka aplikasi.
 )
