@@ -1,1 +1,13 @@
-openpyxl>=3.1.5
+# ===========================================================================
+# Dependensi pihak ketiga SMKMART (dibuat otomatis oleh update_requirements.py)
+# ---------------------------------------------------------------------------
+# Pasang semua dependensi sekaligus:
+#     pip install -r requirements.txt
+#
+# Setelah menambah modul baru di kode, perbarui daftar ini dengan:
+#     python update_requirements.py
+#
+# Modul pustaka standar Python tidak perlu dicantumkan di sini.
+# ===========================================================================
+
+openpyxl>=3.1.5,<4.0

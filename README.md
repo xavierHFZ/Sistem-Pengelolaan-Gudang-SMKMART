@@ -45,9 +45,24 @@ pip install -r requirements.txt
 
 ## Menjalankan aplikasi
 
+### Cara cepat di Windows (disarankan)
+
+1. Pasang Python 3 dan centang **Add Python to PATH** saat instalasi.
+2. Klik dua kali `setup.bat` sekali saja. Skrip ini membuat virtual environment `.venv` lalu memasang seluruh dependensi dari `requirements.txt`.
+3. Jalankan aplikasi dengan mengklik dua kali `run.bat`.
+4. Kalau ada dependensi baru, cukup jalankan `setup.bat` lagi.
+
+### Cara manual
+
 1. Pasang Python 3.
 2. Unduh atau klon repositori ini, lalu buka terminal di folder proyek.
-3. Jalankan:
+3. Pasang dependensi:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Jalankan:
 
    ```bash
    python "sistem gudang.py"
@@ -86,6 +101,22 @@ Baris akun pada `User.txt` menggunakan format `Username,Password/Hash,Peran,Stat
 Setiap barang baru dan restok meminta harga beli/modal per unit. Batch stok disimpan dalam `batch_stok.txt` dengan format `ID,Urutan,TanggalMasuk,SisaJumlah,ModalPerUnit`. Saat checkout, barang diambil dari batch tertua terlebih dahulu; stok dan modal di tiap batch berkurang sesuai jumlah yang terjual. `Harga asli.txt` menyimpan riwayat modal dengan format `ID,Urutan,HargaModal`. Jika `batch_stok.txt` belum ada, stok lama dimigrasikan sekali menjadi batch pembuka memakai harga beli yang tersimpan di `data.txt`; stok tanpa harga modal akan tetap tercatat, tetapi laba transaksi yang memakai stok tersebut ditandai belum lengkap. Perubahan jumlah stok lewat menu ubah barang juga membuat atau mengurangi batch FIFO.
 
 Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
+
+## Mengelola dependensi
+
+`requirements.txt` memuat semua modul pihak ketiga. Setelah menambah `import` baru di kode, perbarui daftarnya dengan:
+
+```bash
+python update_requirements.py
+```
+
+Skrip ini memindai seluruh berkas `.py`, mengabaikan modul pustaka standar dan modul lokal, memetakan nama import ke paket PyPI yang benar (misalnya `PIL` menjadi `Pillow`), lalu menulis ulang `requirements.txt`. Versi yang sudah dipin akan dipertahankan. Setelah itu jalankan:
+
+```bash
+pip install -r requirements.txt
+```
+
+atau klik `setup.bat` di Windows. Modul yang sudah tidak dipakai akan otomatis dihapus dari daftar.
 
 ## Ekspor Excel
 

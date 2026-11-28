@@ -1,0 +1,13 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+
+# Hasil ekspor dan berkas sementara Excel
+exports/
+~$*.xlsx
+*.tmp
