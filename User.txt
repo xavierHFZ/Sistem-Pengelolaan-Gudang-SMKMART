@@ -1,5 +1,6 @@
 Kunci=0
-Xavier,pbkdf2_sha256$e18356bf02b4555abd956484e18d8949$0da627b25cf7df9b8870cfb9e8ec7b8655cbb8419cd2a27902158e157109629b,Kasir,aktif
+Xavier,Kasir,Kasir,aktif
 Rifgi,989,Admin,aktif
 Cleosa,Admin,Kasir,aktif
 fadil,656,admin gudang,aktif
+red,090,kasir,aktif
