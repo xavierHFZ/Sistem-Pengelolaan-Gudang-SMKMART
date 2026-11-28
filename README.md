@@ -12,6 +12,7 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 - Melihat riwayat perubahan gudang dan ringkasan penjualan.
 - Memulihkan barang dari Recycle Bin atau menghapusnya secara permanen.
 - Melihat peringatan ketika stok barang di bawah batas restock yang ditetapkan.
+- Mengekspor daftar stok dan laporan penjualan ke berkas Excel (`.xlsx`) lengkap dengan tabel dan pie chart.
 
 ### Kasir
 - Mencari dan memilih barang berdasarkan ID.
@@ -26,7 +27,14 @@ SMKMART adalah aplikasi berbasis terminal untuk membantu pengelolaan persediaan 
 ## Teknologi
 
 - Python 3
-- Modul pustaka standar Python; tidak ada dependensi pihak ketiga yang diperlukan.
+- Modul pustaka standar Python.
+- `openpyxl` (opsional) untuk fitur ekspor Excel. Fitur lain tetap berjalan tanpa pustaka ini.
+
+Pasang dependensi ekspor Excel dengan:
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Menjalankan aplikasi
 
@@ -58,12 +66,22 @@ Berkas berikut berada di direktori yang sama dengan program:
 | `riwayat_gudang.txt` | Catatan perubahan persediaan |
 | `riwayat_transaksi.txt` | Catatan transaksi penjualan |
 | `keranjang.txt` | Berkas yang disertakan; isi keranjang aktif disimpan sementara selama aplikasi berjalan |
+| `exports/` | Folder hasil ekspor Excel; dibuat otomatis saat ekspor pertama dijalankan |
 
 Data disimpan sebagai teks lokal, bukan di basis data. Aplikasi membaca format `data.txt` lama empat sampai tujuh kolom dan menyimpan format saat ini dalam delapan kolom: `ID,Nama,Stok,HargaJual,Status,BatasRestock,HargaBeliTerakhir,Barcode`. Barcode diperlakukan sebagai teks agar angka nol di depannya tetap terjaga. Untuk format lama tujuh kolom, aplikasi mengenali angka 8, 12, 13, atau 14 digit sebagai barcode; angka lain dianggap sebagai harga beli.
 
 Setiap barang baru dan restok meminta harga beli/modal per unit. Batch stok disimpan dalam `batch_stok.txt` dengan format `ID,Urutan,TanggalMasuk,SisaJumlah,ModalPerUnit`. Saat checkout, barang diambil dari batch tertua terlebih dahulu; stok dan modal di tiap batch berkurang sesuai jumlah yang terjual. `Harga asli.txt` menyimpan riwayat modal dengan format `ID,Urutan,HargaModal`. Jika `batch_stok.txt` belum ada, stok lama dimigrasikan sekali menjadi batch pembuka memakai harga beli yang tersimpan di `data.txt`; stok tanpa harga modal akan tetap tercatat, tetapi laba transaksi yang memakai stok tersebut ditandai belum lengkap. Perubahan jumlah stok lewat menu ubah barang juga membuat atau mengurangi batch FIFO.
 
 Buat salinan cadangan berkas data sebelum mengubahnya secara manual. Jangan menghapus atau mengganti nama berkas yang diperlukan aplikasi.
+
+## Ekspor Excel
+
+Pilih menu **Ekspor Laporan Excel** pada Menu Admin atau Menu Gudang, lalu pilih jenis laporan:
+
+- **Daftar Stok**: sheet `Stok` berisi seluruh barang dengan harga jual, harga beli terakhir, nilai persediaan, barcode, dan keterangan stok. Baris dengan stok di bawah batas restock diberi warna merah, sedangkan yang aman berwarna hijau. Sheet `Per Kategori` merangkum jumlah barang, total stok, dan nilai persediaan per kategori beserta pie chart.
+- **Laporan Penjualan**: masukkan rentang tanggal, atau kosongkan untuk seluruh transaksi. Berkas berisi sheet `Transaksi`, `Barang Terjual` (dengan pie chart proporsi unit terjual), `Kategori` (dengan pie chart proporsi pendapatan), dan `Ringkasan Harian`.
+
+Berkas disimpan di folder `exports` dengan nama berisi tanggal dan waktu, sehingga ekspor sebelumnya tidak tertimpa. Barcode ditulis sebagai teks agar angka nol di depan tetap terjaga. Jika `openpyxl` belum terpasang, aplikasi menampilkan instruksi pemasangan dan fitur lain tetap dapat digunakan.
 
 ## Catatan keamanan dan batasan
 

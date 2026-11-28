@@ -16,6 +16,7 @@ RIWAYAT_TRANSAKSI_FILE = os.path.join(BASE_DIR, "riwayat_transaksi.txt")
 KATEGORI_FILE = os.path.join(BASE_DIR, "kategori.txt")
 USER_FILE = os.path.join(BASE_DIR, "User.txt")
 DATA_HARGA = os.path.join(BASE_DIR, "Harga asli.txt")
+EXPORT_DIR = os.path.join(BASE_DIR, "exports")
 
 data_barang = {}
 batch_stok = []
@@ -2137,10 +2138,11 @@ def loop_menu_gudang(dari_admin=False):
         print("8. Summary Penjualan")
         print("9. Recycle Bin")
         print("10. Kelola Barcode")
+        print("11. Ekspor Laporan Excel")
         print("0. Kembali ke Menu Utama Admin" if dari_admin else "0. Kembali ke halaman login")
         print("==========================================================================")
 
-        pilihan = input("Masukkan pilihan menu (0-10): ").strip()
+        pilihan = input("Masukkan pilihan menu (0-11): ").strip()
 
         if pilihan == "1":
             jalankan_fitur(tambah_barang)
@@ -2168,11 +2170,13 @@ def loop_menu_gudang(dari_admin=False):
             menu_recycle_bin()
         elif pilihan == "10":
             jalankan_fitur(kelola_barcode)
+        elif pilihan == "11":
+            menu_ekspor_excel()
         elif pilihan == "0":
             break
         else:
             bersihkan_layar()
-            print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-10.")
+            print("\n[!] Pilihan tidak valid. Silakan masukkan pilihan angka 0-11.")
             tekan_enter_kembali("\nTekan Enter untuk kembali...")
 
 
@@ -2218,6 +2222,386 @@ def loop_menu_kasir(dari_admin=False):
         else:
             bersihkan_layar()
             print("\n[!] Pilihan tidak valid. Silakan pilih 0-8.")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+
+
+def _impor_openpyxl():
+    try:
+        import openpyxl
+        from openpyxl.chart import PieChart, Reference
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return None
+    return {
+        "openpyxl": openpyxl,
+        "Font": Font,
+        "PatternFill": PatternFill,
+        "Alignment": Alignment,
+        "get_column_letter": get_column_letter,
+        "PieChart": PieChart,
+        "Reference": Reference,
+    }
+
+
+def _siapkan_openpyxl():
+    ox = _impor_openpyxl()
+    if ox is None:
+        print("\n[!] Fitur ekspor Excel membutuhkan pustaka 'openpyxl'.")
+        print("    Pasang dengan perintah: pip install openpyxl")
+    return ox
+
+
+def _tulis_header(ws, headers, ox):
+    fill = ox["PatternFill"]("solid", fgColor="1F4E78")
+    for kolom, judul in enumerate(headers, start=1):
+        sel = ws.cell(row=1, column=kolom, value=judul)
+        sel.font = ox["Font"](bold=True, color="FFFFFF")
+        sel.fill = fill
+        sel.alignment = ox["Alignment"](horizontal="center", vertical="center", wrap_text=True)
+    ws.freeze_panes = "A2"
+    ws.row_dimensions[1].height = 28
+
+
+def _atur_lebar(ws, daftar_lebar, ox):
+    for kolom, ukuran in enumerate(daftar_lebar, start=1):
+        ws.column_dimensions[ox["get_column_letter"](kolom)].width = ukuran
+
+
+def _format_uang(sel):
+    sel.number_format = '"Rp"#,##0'
+
+
+def _simpan_workbook(wb, awalan):
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+    nama_berkas = f"{awalan}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    lokasi = os.path.join(EXPORT_DIR, nama_berkas)
+    wb.save(lokasi)
+    print(f"\n[V] Berkas Excel berhasil dibuat:\n    {lokasi}")
+    return lokasi
+
+
+def ekspor_stok_excel():
+    ox = _siapkan_openpyxl()
+    if ox is None:
+        return
+    muat_data()
+    if not data_barang:
+        print("\n[!] Data barang masih kosong.")
+        return
+
+    wb = ox["openpyxl"].Workbook()
+    ws = wb.active
+    ws.title = "Stok"
+    headers = [
+        "ID", "Nama Barang", "Kategori", "Stok", "Batas Restock",
+        "Harga Jual", "Harga Beli Terakhir", "Nilai Persediaan",
+        "Barcode", "Status", "Keterangan Stok",
+    ]
+    _tulis_header(ws, headers, ox)
+
+    peringatan = ox["PatternFill"]("solid", fgColor="FFC7CE")
+    aman = ox["PatternFill"]("solid", fgColor="C6EFCE")
+
+    urut = sorted(data_barang.items(), key=lambda item: item[1]["id"])
+    for baris, (nama, detail) in enumerate(urut, start=2):
+        kategori = get_nama_kategori(id_ke_kategori(detail["id"]))
+        stok = detail.get("stok", 0)
+        batas = detail.get("batas_restock", 5)
+        harga_beli = detail.get("hargaBeli")
+        menipis = stok < batas
+        nilai_baris = [
+            detail["id"], nama, kategori, stok, batas, detail.get("harga", 0),
+            harga_beli if harga_beli is not None else None,
+            stok * detail.get("harga", 0),
+            str(detail.get("barcode", "0") or "0"),
+            "Aktif" if detail.get("status", "aktif") == "aktif" else "Terhapus",
+            "Segera restock" if menipis else "Aman",
+        ]
+        for kolom, nilai_sel in enumerate(nilai_baris, start=1):
+            sel = ws.cell(row=baris, column=kolom, value=nilai_sel)
+            if kolom in (6, 7, 8):
+                _format_uang(sel)
+            if kolom == 9:
+                sel.number_format = "@"
+        ws.cell(row=baris, column=4).fill = peringatan if menipis else aman
+        ws.cell(row=baris, column=11).fill = peringatan if menipis else aman
+
+    _atur_lebar(ws, [8, 32, 18, 8, 14, 14, 18, 18, 18, 12, 16], ox)
+    ws.auto_filter.ref = f"A1:K{ws.max_row}"
+
+    ws_kat = wb.create_sheet("Per Kategori")
+    _tulis_header(ws_kat, ["Kategori", "Jumlah Barang", "Total Stok", "Nilai Persediaan"], ox)
+    rekap = {}
+    for nama, detail in urut:
+        kategori = get_nama_kategori(id_ke_kategori(detail["id"]))
+        data = rekap.setdefault(kategori, {"jumlah": 0, "stok": 0, "nilai": 0})
+        data["jumlah"] += 1
+        data["stok"] += detail.get("stok", 0)
+        data["nilai"] += detail.get("stok", 0) * detail.get("harga", 0)
+    for baris, (kategori, data) in enumerate(sorted(rekap.items()), start=2):
+        ws_kat.cell(row=baris, column=1, value=kategori)
+        ws_kat.cell(row=baris, column=2, value=data["jumlah"])
+        ws_kat.cell(row=baris, column=3, value=data["stok"])
+        _format_uang(ws_kat.cell(row=baris, column=4, value=data["nilai"]))
+    _atur_lebar(ws_kat, [26, 14, 12, 20], ox)
+
+    if len(rekap) >= 2:
+        chart = ox["PieChart"]()
+        chart.title = "Nilai Persediaan per Kategori"
+        data = ox["Reference"](ws_kat, min_col=4, min_row=1, max_row=ws_kat.max_row)
+        kategori_ref = ox["Reference"](ws_kat, min_col=1, min_row=2, max_row=ws_kat.max_row)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(kategori_ref)
+        chart.height = 9
+        chart.width = 16
+        ws_kat.add_chart(chart, "F2")
+
+    _simpan_workbook(wb, "stok")
+
+
+def baca_transaksi_untuk_ekspor():
+    """Baca riwayat transaksi menjadi data terstruktur (mendukung format lama & baru)."""
+    hasil = []
+    if not os.path.exists(RIWAYAT_TRANSAKSI_FILE) or os.path.getsize(RIWAYAT_TRANSAKSI_FILE) == 0:
+        return hasil
+    with open(RIWAYAT_TRANSAKSI_FILE, "r", encoding="utf-8") as file:
+        isi = file.read()
+
+    pola_item_baru = r"-\s*\[(\d+)\]\s*(.*?)\s*x(\d+)\s*=\s*Rp([\d.]+)"
+    pola_item_lama = r"^-\s*(.+?)\s*x(\d+)\s*=\s*Rp([\d.]+)\s*$"
+
+    for blok in re.split(r"=== TRANSAKSI(?: BARU)? ===", isi):
+        if not blok.strip():
+            continue
+        tanggal_match = re.search(r"Tanggal\s*:\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?", blok)
+        total_match = re.search(r"TOTAL:\s*Rp([\d.]+)", blok)
+        if not (tanggal_match and total_match):
+            continue
+        try:
+            jam = tanggal_match.group(2) or "00:00"
+            waktu = datetime.strptime(f"{tanggal_match.group(1)} {jam}", "%Y-%m-%d %H:%M")
+            total = int(total_match.group(1).replace(".", ""))
+        except ValueError:
+            continue
+
+        modal_match = re.search(r"Modal FIFO:\s*Rp([\d.]+)", blok)
+        laba_match = re.search(r"^Laba:\s*Rp(-?[\d.]+)\s*$", blok, re.MULTILINE)
+        id_match = re.search(r"ID Transaksi:\s*(\S+)", blok)
+        kasir_match = re.search(r"Kasir\s*:\s*(.+)", blok)
+        metode_match = re.search(r"Metode\s*:\s*(.+)", blok)
+
+        items = []
+        for baris in blok.splitlines():
+            cocok = re.search(pola_item_baru, baris)
+            if cocok:
+                items.append({
+                    "id": int(cocok.group(1)),
+                    "nama": cocok.group(2).strip(),
+                    "qty": int(cocok.group(3)),
+                    "subtotal": int(cocok.group(4).replace(".", "")),
+                })
+                continue
+            cocok_lama = re.match(pola_item_lama, baris.strip())
+            if cocok_lama:
+                items.append({
+                    "id": None,
+                    "nama": cocok_lama.group(1).strip(),
+                    "qty": int(cocok_lama.group(2)),
+                    "subtotal": int(cocok_lama.group(3).replace(".", "")),
+                })
+
+        hasil.append({
+            "waktu": waktu,
+            "id": id_match.group(1).strip() if id_match else "",
+            "kasir": kasir_match.group(1).strip() if kasir_match else "",
+            "metode": metode_match.group(1).strip() if metode_match else "",
+            "total": total,
+            "modal": int(modal_match.group(1).replace(".", "")) if modal_match else None,
+            "laba": int(laba_match.group(1).replace(".", "")) if laba_match else None,
+            "items": items,
+        })
+
+    hasil.sort(key=lambda trx: trx["waktu"])
+    return hasil
+
+
+def ekspor_penjualan_excel():
+    ox = _siapkan_openpyxl()
+    if ox is None:
+        return
+    semua = baca_transaksi_untuk_ekspor()
+    if not semua:
+        print("\n[!] Belum ada transaksi yang bisa diekspor.")
+        return
+
+    print("\nKosongkan tanggal untuk mengekspor seluruh transaksi.")
+    try:
+        mulai_str = input("Tanggal mulai (YYYY-MM-DD): ").strip()
+        selesai_str = input("Tanggal selesai (YYYY-MM-DD): ").strip()
+        mulai = datetime.strptime(mulai_str, "%Y-%m-%d").date() if mulai_str else semua[0]["waktu"].date()
+        selesai = datetime.strptime(selesai_str, "%Y-%m-%d").date() if selesai_str else semua[-1]["waktu"].date()
+    except ValueError:
+        print("\n[!] Format tanggal tidak valid. Gunakan YYYY-MM-DD.")
+        return
+    if mulai > selesai:
+        print("\n[!] Tanggal mulai tidak boleh setelah tanggal selesai.")
+        return
+
+    transaksi = [trx for trx in semua if mulai <= trx["waktu"].date() <= selesai]
+    if not transaksi:
+        print("\n[!] Tidak ada transaksi pada rentang tanggal tersebut.")
+        return
+
+    wb = ox["openpyxl"].Workbook()
+
+    ws = wb.active
+    ws.title = "Transaksi"
+    _tulis_header(ws, ["Tanggal & Jam", "ID Transaksi", "Kasir", "Metode", "Total", "Modal FIFO", "Laba", "Jumlah Item"], ox)
+    for baris, trx in enumerate(transaksi, start=2):
+        sel_waktu = ws.cell(row=baris, column=1, value=trx["waktu"])
+        sel_waktu.number_format = "yyyy-mm-dd hh:mm"
+        ws.cell(row=baris, column=2, value=trx["id"])
+        ws.cell(row=baris, column=3, value=trx["kasir"])
+        ws.cell(row=baris, column=4, value=trx["metode"])
+        _format_uang(ws.cell(row=baris, column=5, value=trx["total"]))
+        _format_uang(ws.cell(row=baris, column=6, value=trx["modal"]))
+        _format_uang(ws.cell(row=baris, column=7, value=trx["laba"]))
+        ws.cell(row=baris, column=8, value=sum(item["qty"] for item in trx["items"]))
+    _atur_lebar(ws, [18, 22, 16, 12, 16, 16, 16, 12], ox)
+    ws.auto_filter.ref = f"A1:H{ws.max_row}"
+
+    baris_total = ws.max_row + 1
+    ws.cell(row=baris_total, column=4, value="TOTAL").font = ox["Font"](bold=True)
+    for kolom in (5, 6, 7, 8):
+        huruf = ox["get_column_letter"](kolom)
+        sel = ws.cell(row=baris_total, column=kolom, value=f"=SUM({huruf}2:{huruf}{baris_total - 1})")
+        sel.font = ox["Font"](bold=True)
+        if kolom in (5, 6, 7):
+            _format_uang(sel)
+
+    rekap_barang = {}
+    for trx in transaksi:
+        for item in trx["items"]:
+            kunci = item["nama"].casefold()
+            data = rekap_barang.setdefault(kunci, {
+                "id": item["id"], "nama": item["nama"], "qty": 0, "subtotal": 0,
+            })
+            data["qty"] += item["qty"]
+            data["subtotal"] += item["subtotal"]
+    urut_barang = sorted(rekap_barang.values(), key=lambda x: x["qty"], reverse=True)
+
+    ws_barang = wb.create_sheet("Barang Terjual")
+    _tulis_header(ws_barang, ["ID", "Nama Barang", "Kategori", "Unit Terjual", "Total Pendapatan"], ox)
+    for baris, item in enumerate(urut_barang, start=2):
+        kategori = get_nama_kategori(id_ke_kategori(item["id"])) if item["id"] is not None else "Tidak diketahui"
+        ws_barang.cell(row=baris, column=1, value=item["id"] if item["id"] is not None else "")
+        ws_barang.cell(row=baris, column=2, value=item["nama"])
+        ws_barang.cell(row=baris, column=3, value=kategori)
+        ws_barang.cell(row=baris, column=4, value=item["qty"])
+        _format_uang(ws_barang.cell(row=baris, column=5, value=item["subtotal"]))
+    _atur_lebar(ws_barang, [8, 32, 18, 14, 20], ox)
+    ws_barang.auto_filter.ref = f"A1:E{ws_barang.max_row}"
+
+    if len(urut_barang) >= 2:
+        chart = ox["PieChart"]()
+        chart.title = "Proporsi Unit Terjual per Barang (Top 10)"
+        max_baris = min(11, ws_barang.max_row)
+        data = ox["Reference"](ws_barang, min_col=4, min_row=1, max_row=max_baris)
+        kategori_ref = ox["Reference"](ws_barang, min_col=2, min_row=2, max_row=max_baris)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(kategori_ref)
+        chart.height = 10
+        chart.width = 18
+        ws_barang.add_chart(chart, "G2")
+
+    rekap_kategori = {}
+    for item in urut_barang:
+        kategori = get_nama_kategori(id_ke_kategori(item["id"])) if item["id"] is not None else "Tidak diketahui"
+        data = rekap_kategori.setdefault(kategori, {"qty": 0, "pendapatan": 0})
+        data["qty"] += item["qty"]
+        data["pendapatan"] += item["subtotal"]
+
+    ws_kategori = wb.create_sheet("Kategori")
+    _tulis_header(ws_kategori, ["Kategori", "Unit Terjual", "Pendapatan"], ox)
+    for baris, (kategori, data) in enumerate(
+        sorted(rekap_kategori.items(), key=lambda x: x[1]["pendapatan"], reverse=True), start=2
+    ):
+        ws_kategori.cell(row=baris, column=1, value=kategori)
+        ws_kategori.cell(row=baris, column=2, value=data["qty"])
+        _format_uang(ws_kategori.cell(row=baris, column=3, value=data["pendapatan"]))
+    _atur_lebar(ws_kategori, [26, 14, 20], ox)
+
+    if len(rekap_kategori) >= 2:
+        chart = ox["PieChart"]()
+        chart.title = "Proporsi Pendapatan per Kategori"
+        data = ox["Reference"](ws_kategori, min_col=3, min_row=1, max_row=ws_kategori.max_row)
+        kategori_ref = ox["Reference"](ws_kategori, min_col=1, min_row=2, max_row=ws_kategori.max_row)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(kategori_ref)
+        chart.height = 9
+        chart.width = 16
+        ws_kategori.add_chart(chart, "E2")
+
+    rekap_harian = {}
+    for trx in transaksi:
+        tanggal = trx["waktu"].date()
+        data = rekap_harian.setdefault(tanggal, {"jumlah": 0, "total": 0, "laba": 0, "bermodal": 0})
+        data["jumlah"] += 1
+        data["total"] += trx["total"]
+        if trx["laba"] is not None:
+            data["laba"] += trx["laba"]
+            data["bermodal"] += 1
+
+    ws_harian = wb.create_sheet("Ringkasan Harian")
+    _tulis_header(ws_harian, ["Tanggal", "Jumlah Transaksi", "Total Penjualan", "Total Laba", "Transaksi Bermodal"], ox)
+    for baris, (tanggal, data) in enumerate(sorted(rekap_harian.items()), start=2):
+        sel_tgl = ws_harian.cell(row=baris, column=1, value=datetime.combine(tanggal, datetime.min.time()))
+        sel_tgl.number_format = "yyyy-mm-dd"
+        ws_harian.cell(row=baris, column=2, value=data["jumlah"])
+        _format_uang(ws_harian.cell(row=baris, column=3, value=data["total"]))
+        _format_uang(ws_harian.cell(row=baris, column=4, value=data["laba"]))
+        ws_harian.cell(row=baris, column=5, value=data["bermodal"])
+    _atur_lebar(ws_harian, [16, 16, 18, 18, 20], ox)
+
+    _simpan_workbook(wb, f"penjualan_{mulai:%Y%m%d}_{selesai:%Y%m%d}")
+
+    total_penjualan = sum(trx["total"] for trx in transaksi)
+    total_laba = sum(trx["laba"] for trx in transaksi if trx["laba"] is not None)
+    print(f"    {len(transaksi)} transaksi | Penjualan: Rp{total_penjualan:,.0f} | Laba: Rp{total_laba:,.0f}".replace(",", "."))
+
+
+def menu_ekspor_excel():
+    while True:
+        bersihkan_layar()
+        print("\n==========================================================================")
+        print("                         EKSPOR LAPORAN KE EXCEL (.XLSX)                  ")
+        print("==========================================================================")
+        print("1. Ekspor Daftar Stok")
+        print("2. Ekspor Laporan Penjualan")
+        print("0. Kembali")
+        print("==========================================================================")
+        pilihan = input("Masukkan pilihan (0-2): ").strip()
+        if pilihan == "0":
+            return
+        if pilihan == "1":
+            try:
+                ekspor_stok_excel()
+            except (EOFError, KeyboardInterrupt):
+                print("\n[!] Ekspor dibatalkan.")
+            except Exception as error:
+                print(f"\n[!] Gagal membuat berkas Excel: {error}")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+        elif pilihan == "2":
+            try:
+                ekspor_penjualan_excel()
+            except (EOFError, KeyboardInterrupt):
+                print("\n[!] Ekspor dibatalkan.")
+            except Exception as error:
+                print(f"\n[!] Gagal membuat berkas Excel: {error}")
+            tekan_enter_kembali("\nTekan Enter untuk kembali...")
+        else:
+            print("\n[!] Pilihan tidak valid.")
             tekan_enter_kembali("\nTekan Enter untuk kembali...")
 
 
@@ -2357,10 +2741,11 @@ def main():
             print("8. Ganti Password Sendiri")
             print("9. Menu Kasir")
             print("10. Menu Gudang")
+            print("11. Ekspor Laporan Excel")
             print("0. Kembali ke halaman login")
             print("==========================================================================")
 
-            pilihan_adm = input("Masukkan pilihan menu (0-10): ").strip()
+            pilihan_adm = input("Masukkan pilihan menu (0-11): ").strip()
 
             if pilihan_adm == "1":
                 kelola_pengguna()
@@ -2388,6 +2773,8 @@ def main():
                 loop_menu_kasir(dari_admin=True)
             elif pilihan_adm == "10":
                 loop_menu_gudang(dari_admin=True)
+            elif pilihan_adm == "11":
+                menu_ekspor_excel()
             elif pilihan_adm == "0":
                 admin_menu = False
             else:
