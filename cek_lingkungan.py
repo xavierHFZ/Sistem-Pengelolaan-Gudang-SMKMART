@@ -1,8 +1,8 @@
-"""Verifikasi lingkungan SMKMART.
+"""Trouble detector dan verifikasi lingkungan SMKMART.
 
-Skrip ini memeriksa interpreter Python, virtual environment, seluruh
+Skrip ini memeriksa interpreter Python, pip, virtual environment, seluruh
 dependensi di requirements.txt, kemampuan membuat berkas Excel, akses tulis,
-dan berkas data yang diperlukan.
+akun pengguna, serta integritas berkas data.
 
 Jalankan dari venv:
     .venv\\Scripts\\python.exe cek_lingkungan.py
@@ -14,6 +14,7 @@ Atau cukup klik cek.bat. Gunakan --ringkas untuk keluaran satu baris
 import importlib.metadata
 import os
 import re
+import subprocess
 import sys
 import tempfile
 
@@ -25,8 +26,14 @@ RINGKAS = "--ringkas" in sys.argv
 hasil = []
 
 
-def catat(nama, ok, detail="", saran=""):
-    hasil.append({"nama": nama, "ok": ok, "detail": detail, "saran": saran})
+def catat(nama, ok, detail="", saran="", peringatan=False):
+    hasil.append({
+        "nama": nama,
+        "ok": ok,
+        "detail": detail,
+        "saran": saran,
+        "peringatan": peringatan,
+    })
 
 
 def cek_python():
@@ -39,6 +46,15 @@ def cek_python():
         f"Butuh Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} atau lebih baru.",
     )
     catat("Lokasi Python", True, sys.executable)
+    catat("Arsitektur", True, "64-bit" if sys.maxsize > 2**32 else "32-bit")
+    if "windowsapps" in sys.executable.lower():
+        catat(
+            "Sumber Python",
+            True,
+            "Microsoft Store",
+            "Bila muncul masalah, pasang Python dari python.org lalu jalankan setup.bat.",
+            peringatan=True,
+        )
 
 
 def cek_venv():
@@ -46,9 +62,32 @@ def cek_venv():
     catat(
         "Virtual environment",
         di_venv,
-        os.path.basename(sys.prefix) if di_venv else "memakai Python global",
+        os.path.basename(sys.prefix or ".venv") if di_venv else "memakai Python global",
         "Jalankan setup.bat agar aplikasi memakai .venv, bukan Python global.",
     )
+
+
+def cek_pip():
+    try:
+        proses = subprocess.run(
+            [sys.executable, "-m", "pip", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        ok = proses.returncode == 0
+        keluaran = (proses.stdout or proses.stderr or "").strip()
+        detail = keluaran.splitlines()[0] if keluaran else "tidak merespons"
+    except (OSError, subprocess.SubprocessError) as error:
+        ok = False
+        detail = str(error)
+    catat(
+        "pip",
+        ok,
+        detail,
+        "Jalankan setup.bat; pip akan dipasang otomatis memakai ensurepip/get-pip.",
+    )
+    return ok
 
 
 def daftar_paket_requirements():
@@ -69,7 +108,7 @@ def daftar_paket_requirements():
 def cek_dependensi():
     paket = daftar_paket_requirements()
     if not paket:
-        catat("Dependensi", True, "requirements.txt kosong atau tidak ada")
+        catat("Dependensi requirements", True, "requirements.txt kosong atau tidak ada")
         return True
     hilang = []
     for nama in paket:
@@ -117,7 +156,7 @@ def cek_openpyxl():
             load_workbook(uji)
         catat("Mesin Excel (.xlsx + chart)", True, "membuat dan membaca berkas uji berhasil")
     except Exception as error:
-        catat("Mesin Excel (.xlsx + chart)", False, str(error), "Pasang ulang openpyxl.")
+        catat("Mesin Excel (.xlsx + chart)", False, str(error), "Pasang ulang openpyxl lewat setup.bat.")
         return False
     return True
 
@@ -139,14 +178,81 @@ def cek_akses_tulis():
         )
 
 
-def cek_berkas():
-    user_file = os.path.join(BASE_DIR, "User.txt")
+def hitung_baris_rusak(nama, panjang_valid):
+    lokasi = os.path.join(BASE_DIR, nama)
+    if not os.path.exists(lokasi):
+        return None, None
+    rusak = 0
+    total = 0
+    try:
+        with open(lokasi, "r", encoding="utf-8-sig") as file:
+            for baris in file:
+                if not baris.strip():
+                    continue
+                total += 1
+                if len(baris.strip().split(",")) not in panjang_valid:
+                    rusak += 1
+    except OSError:
+        return -1, 0
+    return rusak, total
+
+
+def cek_integritas_data():
+    aturan = {
+        "data.txt": {4, 5, 6, 7, 8},
+        "kategori.txt": {2},
+        "batch_stok.txt": {5},
+    }
+    for nama, panjang_valid in aturan.items():
+        rusak, total = hitung_baris_rusak(nama, panjang_valid)
+        if rusak is None:
+            continue
+        if rusak == -1:
+            catat("Berkas " + nama, False, "tidak bisa dibaca", "Periksa izin akses berkas.")
+        elif rusak:
+            catat(
+                "Berkas " + nama,
+                True,
+                f"{rusak} dari {total} baris perlu dicek",
+                "Cadangkan berkas lalu perbaiki baris tersebut; aplikasi akan melewati baris rusak.",
+                peringatan=True,
+            )
+        else:
+            catat("Berkas " + nama, True, f"{total} baris valid")
+
+
+def cek_akun():
+    lokasi = os.path.join(BASE_DIR, "User.txt")
+    if not os.path.exists(lokasi):
+        catat(
+            "Berkas akun",
+            False,
+            "User.txt tidak ditemukan",
+            "Pastikan User.txt berada di folder aplikasi.",
+        )
+        return
+    jumlah = 0
+    try:
+        with open(lokasi, "r", encoding="utf-8-sig") as file:
+            for baris in file:
+                baris = baris.strip()
+                if not baris or baris.lower().startswith("kunci="):
+                    continue
+                bagian = [bagian.strip() for bagian in baris.split(",")]
+                if len(bagian) >= 3 and bagian[0]:
+                    jumlah += 1
+    except OSError as error:
+        catat("Akun pengguna", False, str(error), "Periksa izin akses User.txt.")
+        return
     catat(
-        "Berkas akun",
-        os.path.exists(user_file),
-        "User.txt tersedia" if os.path.exists(user_file) else "User.txt tidak ditemukan",
-        "Pastikan User.txt berada di folder aplikasi.",
+        "Akun pengguna",
+        jumlah > 0,
+        f"{jumlah} akun terbaca" if jumlah else "tidak ada akun valid",
+        "Tambahkan akun dengan format Username,Password,Peran,Status di User.txt.",
     )
+
+
+def cek_berkas_data():
     opsional = ["data.txt", "kategori.txt", "batch_stok.txt", "riwayat_transaksi.txt"]
     ada = sum(1 for nama in opsional if os.path.exists(os.path.join(BASE_DIR, nama)))
     catat("Berkas data", True, f"{ada}/{len(opsional)} tersedia (dibuat otomatis bila kosong)")
@@ -155,33 +261,49 @@ def cek_berkas():
 def main():
     cek_python()
     cek_venv()
+    cek_pip()
     cek_dependensi()
     cek_openpyxl()
     cek_akses_tulis()
-    cek_berkas()
+    cek_akun()
+    cek_berkas_data()
+    cek_integritas_data()
 
     gagal = [item for item in hasil if not item["ok"]]
+    peringatan = [item for item in hasil if item["ok"] and item["peringatan"]]
 
     if RINGKAS:
         if gagal:
             print("Lingkungan belum siap: " + ", ".join(item["nama"] for item in gagal))
             return 1
-        print("Lingkungan siap.")
+        if peringatan:
+            print(f"Lingkungan siap dengan {len(peringatan)} peringatan.")
+        else:
+            print("Lingkungan siap.")
         return 0
 
     print("==========================================================================")
-    print("                    VERIFIKASI LINGKUNGAN SMKMART                         ")
+    print("                 TROUBLE DETECTOR LINGKUNGAN SMKMART                      ")
     print("==========================================================================")
     for item in hasil:
-        tanda = "[OK]" if item["ok"] else "[!] "
+        if item["ok"] and item["peringatan"]:
+            tanda = "[!!]"
+        elif item["ok"]:
+            tanda = "[OK]"
+        else:
+            tanda = "[!] "
         print(f"{tanda} {item['nama']:<28} {item['detail']}")
-        if not item["ok"] and item["saran"]:
+        if item["saran"] and (not item["ok"] or item["peringatan"]):
             print(f"      -> {item['saran']}")
     print("--------------------------------------------------------------------------")
+
     if gagal:
         print(f"HASIL: {len(gagal)} masalah ditemukan. Ikuti saran di atas.")
-        print("Jika masih gagal, jalankan setup.bat lalu ulangi cek.bat.")
+        print("Jalankan setup.bat, lalu ulangi cek.bat.")
         return 1
+    if peringatan:
+        print(f"HASIL: siap dijalankan, dengan {len(peringatan)} peringatan yang sebaiknya dicek.")
+        return 0
     print("HASIL: semua pemeriksaan lulus. Aplikasi siap dijalankan dengan run.bat.")
     return 0
 
