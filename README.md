@@ -48,9 +48,39 @@ pip install -r requirements.txt
 ### Cara cepat di Windows (disarankan)
 
 1. Pasang Python 3 dan centang **Add Python to PATH** saat instalasi.
-2. Klik dua kali `setup.bat` sekali saja. Skrip ini membuat virtual environment `.venv` lalu memasang seluruh dependensi dari `requirements.txt`.
-3. Jalankan aplikasi dengan mengklik dua kali `run.bat`.
-4. Kalau ada dependensi baru, cukup jalankan `setup.bat` lagi.
+2. Klik dua kali `setup.bat`. Skrip ini:
+   - mencari Python yang benar-benar bisa dijalankan (`py`, `python`, `python3`, atau lokasi instalasi umum),
+   - membuat virtual environment `.venv` dan membuat ulang bila rusak,
+   - memperbarui `requirements.txt` dari import di kode,
+   - memasang hanya dependensi yang belum ada,
+   - menjalankan verifikasi di dalam `.venv`.
+3. Klik dua kali `run.bat` untuk membuka aplikasi. Jika `.venv` belum lengkap, `run.bat` otomatis menjalankan perbaikan.
+4. Kalau ada modul baru di kode, cukup jalankan `setup.bat` lagi.
+
+`setup.bat` tidak memakai ulang Python global untuk memasang paket. Semua pemeriksaan dilakukan dengan interpreter di dalam `.venv`, sehingga paket yang sudah terpasang tidak lagi terdeteksi sebagai "belum ada".
+
+### Verifikasi lingkungan
+
+Klik `cek.bat` (atau jalankan `.venv\Scripts\python.exe cek_lingkungan.py`) untuk memeriksa:
+
+- versi dan lokasi Python,
+- apakah benar-benar berjalan di dalam `.venv`,
+- seluruh paket di `requirements.txt` terpasang,
+- `openpyxl` dapat membuat dan membaca berkas `.xlsx` beserta chart,
+- izin tulis folder aplikasi,
+- ketersediaan `User.txt` dan berkas data.
+
+Setiap masalah ditampilkan dengan saran perbaikan. Perintah yang sama dipakai `setup.bat` dan `run.bat`, sehingga hasil verifikasi konsisten.
+
+### Python dari Microsoft Store
+
+Python yang dipasang dari Microsoft Store memakai alias di `WindowsApps` dan berbeda dari Python di terminal biasa. `setup.bat` menguji kandidat dengan benar-benar menjalankannya, bukan hanya mengecek keberadaan berkas, sehingga:
+
+- alias Store yang belum terpasang akan dilewati,
+- Python Store yang sudah benar-benar terpasang tetap dapat dipakai,
+- jika ada beberapa Python, yang dipilih adalah yang berhasil dijalankan.
+
+Jika baru memasang Python, tutup semua jendela terminal lalu jalankan `setup.bat` lagi agar PATH terbaru terbaca.
 
 ### Cara manual
 

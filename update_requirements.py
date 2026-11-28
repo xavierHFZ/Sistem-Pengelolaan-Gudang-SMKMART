@@ -87,7 +87,27 @@ def kumpulkan_import():
                     if simpul.level == 0 and simpul.module:
                         ditemukan.add(simpul.module.split(".")[0])
 
-    standar = getattr(sys, "stdlib_module_names", set())
+    standar = set(getattr(sys, "stdlib_module_names", set()))
+    if not standar:
+        # Cadangan untuk Python < 3.10 yang belum punya sys.stdlib_module_names.
+        standar = {
+            "abc", "argparse", "array", "ast", "asyncio", "base64", "binascii",
+            "bisect", "bz2", "calendar", "cgi", "codecs", "collections", "contextlib",
+            "copy", "csv", "ctypes", "dataclasses", "datetime", "dbm", "decimal",
+            "difflib", "dis", "email", "enum", "errno", "filecmp", "fnmatch",
+            "fractions", "functools", "gc", "getpass", "gettext", "glob", "gzip",
+            "hashlib", "heapq", "hmac", "html", "http", "importlib", "inspect", "io",
+            "itertools", "json", "keyword", "locale", "logging", "lzma", "marshal",
+            "math", "mmap", "msvcrt", "multiprocessing", "nt", "ntpath", "operator",
+            "os", "pathlib", "pickle", "pkgutil", "platform", "plistlib", "pprint",
+            "queue", "random", "re", "sched", "secrets", "select", "selectors",
+            "shelve", "shlex", "shutil", "signal", "site", "socket", "sqlite3",
+            "ssl", "stat", "statistics", "string", "struct", "subprocess", "sys",
+            "tarfile", "tempfile", "textwrap", "threading", "time", "tokenize",
+            "traceback", "types", "typing", "unicodedata", "unittest", "urllib",
+            "uuid", "venv", "warnings", "weakref", "webbrowser", "winreg",
+            "winsound", "xml", "zipfile", "zlib",
+        }
     hasil = set()
     for nama in ditemukan:
         if not nama or nama in standar or nama.lower() in lokal:
